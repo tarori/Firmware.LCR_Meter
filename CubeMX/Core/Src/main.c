@@ -23,12 +23,11 @@
 #include "dma.h"
 #include "tim.h"
 #include "usart.h"
-#include "usb_otg.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "main_cycle.hpp"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -101,7 +100,6 @@ int main(void)
     MX_GPIO_Init();
     MX_DMA_Init();
     MX_ADC2_Init();
-    MX_USB_OTG_HS_PCD_Init();
     MX_DAC1_Init();
     MX_ADC3_Init();
     MX_TIM3_Init();
@@ -114,6 +112,7 @@ int main(void)
 
     /* Infinite loop */
     /* USER CODE BEGIN WHILE */
+    main_loop();
     while (1) {
         /* USER CODE END WHILE */
 

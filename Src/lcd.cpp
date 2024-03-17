@@ -79,22 +79,41 @@ void SMR12864::write_pixel(uint32_t addr_x, uint32_t addr_y, const uint8_t* data
     }
 }
 
-extern const uint8_t** lcd_font8_map1;  // ASCII Code
-extern const uint8_t** lcd_font8_map2;  // Katakana
+extern const uint8_t lcd_font8_map1[96][5];       // ASCII
+extern const uint8_t lcd_font8_map2[64][5];       // Katakana
+extern const uint8_t lcd_font16_map1[96][2][12];  // ASCII
+extern const uint8_t lcd_font32_map1[96][4][24];  // ASCII
 
 int SMR12864::putc(uint8_t ch)
 {
-    if (0x20 <= ch && ch <= 0x7F) {
-        write_pixel(pos_x, pos_y, lcd_font8_map1[ch - 0x20], 5);
-        pos_y += 6;
-        return ch;
-    } else if (0xA0 <= ch && ch <= 0xDF) {
-        write_pixel(pos_x, pos_y, lcd_font8_map2[ch - 0xA0], 5);
-        pos_y += 6;
-        return ch;
-    } else {
-        return -1;
+    if (font_size == 8) {
+        if (0x20 <= ch && ch <= 0x7F) {
+            write_pixel(pos_x, pos_y, lcd_font8_map1[ch - 0x20], 5);
+            pos_y += 6;
+            return ch;
+        } else if (0xA0 <= ch && ch <= 0xDF) {
+            write_pixel(pos_x, pos_y, lcd_font8_map2[ch - 0xA0], 5);
+            pos_y += 6;
+            return ch;
+        }
+    } else if (font_size == 16) {
+        if (0x20 <= ch && ch <= 0x7F) {
+            write_pixel(pos_x, pos_y + 0, lcd_font16_map1[ch - 0x20][0], 12);
+            write_pixel(pos_x, pos_y + 1, lcd_font16_map1[ch - 0x20][1], 12);
+            pos_y += 12;
+            return ch;
+        }
+    } else if (font_size == 32) {
+        if (0x20 <= ch && ch <= 0x7F) {
+            write_pixel(pos_x, pos_y + 0, lcd_font32_map1[ch - 0x20][0], 24);
+            write_pixel(pos_x, pos_y + 1, lcd_font32_map1[ch - 0x20][1], 24);
+            write_pixel(pos_x, pos_y + 2, lcd_font32_map1[ch - 0x20][2], 24);
+            write_pixel(pos_x, pos_y + 3, lcd_font32_map1[ch - 0x20][3], 24);
+            pos_y += 24;
+            return ch;
+        }
     }
+    return -1;
 }
 
 int SMR12864::printf(const char* format, ...)

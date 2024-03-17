@@ -17,7 +17,13 @@ void main_loop()
 
     lcd.reset();
     lcd.locate(0, 0);
-    lcd.printf("Hello");
+    lcd.printf("Hello %ld MHz", SystemCoreClock / 1000 / 1000);
+    lcd.locate(1, 0);
+    lcd.set_fontsize(16);
+    lcd.printf("Hello\n");
+    lcd.locate(3, 0);
+    lcd.set_fontsize(32);
+    lcd.printf("Hello\n");
 
     init_done = true;
     while (1) {
