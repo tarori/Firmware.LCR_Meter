@@ -35,29 +35,6 @@ static inline uint32_t dma_get_last_index(ADC_HandleTypeDef* hadc, uint32_t buf_
     return (2 * buf_size - 1 - __HAL_DMA_GET_COUNTER(hadc->DMA_Handle)) % buf_size;
 }
 
-static inline bool HAL_Check(HAL_StatusTypeDef ret, const char* s)
-{
-    if (ret == HAL_OK) {
-        return false;
-    }
-    printf("Error at %s: ", s);
-    switch (ret) {
-    case HAL_ERROR:
-        printf("HAL_ERROR\n");
-        break;
-    case HAL_BUSY:
-        printf("HAL_BUSY\n");
-        break;
-    case HAL_TIMEOUT:
-        printf("HAL_TIMEOUT\n");
-        break;
-    default:
-        printf("HAL_UNKNOWN\n");
-    }
-    Error_Handler();
-    return true;
-}
-
 class ScopedLock
 {
 public:
