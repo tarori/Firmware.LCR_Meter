@@ -8,6 +8,7 @@
 #define FIELD_GET(mask, reg) (((reg) & (mask)) >> (__builtin_ffsll(mask) - 1))
 #define __ALIGN_MASK(x, mask) ((x) & ~(mask))
 #define ALIGN(x, a) __ALIGN_MASK(x, (typeof(x))(a)-1)
+#define PI (3.1415926535897932384626433832795028841971)
 
 static inline void delay_us(uint32_t us)
 {
