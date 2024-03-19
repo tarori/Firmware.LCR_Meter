@@ -17,25 +17,28 @@ volatile bool init_done = false;
 
 // DAC
 constexpr uint32_t dac_dma_buf_len = 4000;
-uint16_t dac_dma_buffer[dac_dma_buf_len];
-uint32_t dac_sampling_freq = 1000000;
+__attribute__((section(".RAM_D1_DMA"))) uint16_t dac_dma_buffer[dac_dma_buf_len];
+uint32_t dac_sampling_freq = 10 * 1000 * 1000;
 
 // ADC
 constexpr uint32_t adc_dma_buf_len = 256;
-uint16_t adc1_dma_buffer[adc_dma_buf_len];
-uint16_t adc2_dma_buffer[adc_dma_buf_len];
+__attribute__((section(".RAM_D1_DMA"))) uint16_t adc1_dma_buffer[adc_dma_buf_len];
+__attribute__((section(".RAM_D1_DMA"))) uint16_t adc2_dma_buffer[adc_dma_buf_len];
 constexpr uint32_t adc_data_buf_len = 4000;
 uint16_t adc1_data_buffer[adc_data_buf_len];
 uint16_t adc2_data_buffer[adc_data_buf_len];
-uint32_t adc_sampling_freq = 1000000;
+uint32_t adc_sampling_freq = 1 * 1000 * 1000;
 
 SMR12864 lcd;
+
+void set_dac_output(int freq, int amp);
 
 void main_loop()
 {
     setbuf(stdout, NULL);
     setbuf(stdin, NULL);
     printf("Hello, I am H730 working at %ld MHz\n", SystemCoreClock / 1000 / 1000);
+
 
     lcd.reset();
     lcd.locate(0, 0);
@@ -59,13 +62,15 @@ void main_loop()
 
     HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)dac_dma_buffer, dac_dma_buf_len, DAC_ALIGN_12B_R);
     MODIFY_REG(((DMA_Stream_TypeDef*)hdac1.DMA_Handle1->Instance)->CR, DMA_IT_TC | DMA_IT_HT, 0);
+    set_dac_output(100000, 1000);
 
-    HAL_TIM_Base_Start(&htim15);  // 1MHz TIM
+    HAL_TIM_Base_Start(&htim15);  // 1MHz TIM for ADC
+    HAL_TIM_Base_Start(&htim7);   // 10MHz TIM for DAC
 
     init_done = true;
     while (1) {
-        printf("Hi %d, %d\n", adc1_dma_buffer[0], adc2_dma_buffer[0]);
-        delay_ms(500);
+        printf("Tick %d, %d\n", adc1_dma_buffer[0], adc2_dma_buffer[0]);
+        delay_ms(1000);
     }
 }
 

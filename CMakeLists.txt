@@ -57,7 +57,7 @@ file(GLOB PERIPH_LIB_SOURCE "${CubeMX_dir}/Core/Src/*.c" "${CubeMX_dir}/Drivers/
 list(REMOVE_ITEM PERIPH_LIB_SOURCE "${CubeMX_dir}/Core/Src/main.c")
 list(REMOVE_ITEM PERIPH_LIB_SOURCE "${CubeMX_dir}/Core/Src/stm32h7xx_it.c")
 
-set(CMAKE_EXE_LINKER_FLAGS "-mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard -specs=nano.specs -T ${CubeMX_dir}/STM32H730VBTx_FLASH.ld -L. -lc -lm -u _printf_float -Wl,--no-warn-rwx-segment -Wl,--gc-sections -Wl,-Map=${CMAKE_PROJECT_NAME}.map,--cref -Wl,--print-memory-usage")
+set(CMAKE_EXE_LINKER_FLAGS "-mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard -specs=nano.specs -T ${CMAKE_SOURCE_DIR}/Src/STM32H730VBTx_FLASH.ld -L. -lc -lm -u _printf_float -Wl,--no-warn-rwx-segment -Wl,--gc-sections -Wl,-Map=${CMAKE_PROJECT_NAME}.map,--cref -Wl,--print-memory-usage")
 
 file(GLOB MAIN_SOURCE "Src/*.cpp" "Src/*.c")
 

@@ -45,7 +45,7 @@ void SMR12864::locate(uint32_t x, uint32_t y)
 
 void SMR12864::write_pixel(uint32_t addr_x, uint32_t addr_y, const uint8_t* data, uint32_t len)
 {
-    if (addr_y >= lcd_width) {
+    if (addr_x >= lcd_height || addr_y >= lcd_width) {
         ::printf("Error in write_pixel\n");
         return;
     }
