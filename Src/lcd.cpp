@@ -8,6 +8,21 @@ void SMR12864::set_bus(uint8_t val)
     GPIOD->BSRR = ((~val) & 0xFF) << 16;
 }
 
+uint8_t SMR12864::get_bus()
+{
+    return GPIOD->IDR & 0xFF;
+}
+
+
+void SMR12864::set_bus_mode(bool is_out)
+{
+    if (is_out) {
+        GPIOD->MODER |= 0x5555;
+    } else {
+        GPIOD->MODER &= ~0xFFFF;
+    }
+}
+
 void SMR12864::set_cs(uint8_t chip_id, bool state)
 {
     if (chip_id == 0) {
@@ -64,7 +79,7 @@ void SMR12864::write_pixel(uint32_t addr_x, uint32_t addr_y, const uint8_t* data
 
     // Address set
     uint8_t chip_id = (addr_y >= chip_width);
-    uint8_t command_data = 0xB8 | (addr_x && 0x07);
+    uint8_t command_data = 0xB8 | (addr_x & 0x07);
     write_command(chip_id, command_data);
     command_data = 0x40 | (addr_y & 0x3F);
     write_command(chip_id, command_data);
@@ -86,30 +101,50 @@ extern const uint8_t lcd_font32_map1[96][4][24];  // ASCII
 
 int SMR12864::putc(uint8_t ch)
 {
-    if (font_size == 8) {
+    if (ch == '\n') {
+        pos_x += font_size / 8;
+        pos_y = 0;
+        return ch;
+    } else if (font_size == 8) {
+        uint8_t space = 0x00;
         if (0x20 <= ch && ch <= 0x7F) {
             write_pixel(pos_x, pos_y, lcd_font8_map1[ch - 0x20], 5);
+            write_pixel(pos_x, pos_y, lcd_font8_map1[ch - 0x20], 5);
+            write_pixel(pos_x, pos_y + 5, &space, 1);
             pos_y += 6;
             return ch;
         } else if (0xA0 <= ch && ch <= 0xDF) {
             write_pixel(pos_x, pos_y, lcd_font8_map2[ch - 0xA0], 5);
+            write_pixel(pos_x, pos_y + 5, &space, 1);
             pos_y += 6;
             return ch;
         }
     } else if (font_size == 16) {
         if (0x20 <= ch && ch <= 0x7F) {
-            write_pixel(pos_x, pos_y + 0, lcd_font16_map1[ch - 0x20][0], 12);
-            write_pixel(pos_x, pos_y + 1, lcd_font16_map1[ch - 0x20][1], 12);
-            pos_y += 12;
+            int font_length;
+            for (font_length = 0; font_length < 12; ++font_length) {
+                if (lcd_font16_map1[ch - 0x20][0][font_length] == 0x01) {
+                    break;
+                }
+            }
+            write_pixel(pos_x + 0, pos_y, lcd_font16_map1[ch - 0x20][0], font_length);
+            write_pixel(pos_x + 1, pos_y, lcd_font16_map1[ch - 0x20][1], font_length);
+            pos_y += font_length;
             return ch;
         }
     } else if (font_size == 32) {
         if (0x20 <= ch && ch <= 0x7F) {
-            write_pixel(pos_x, pos_y + 0, lcd_font32_map1[ch - 0x20][0], 24);
-            write_pixel(pos_x, pos_y + 1, lcd_font32_map1[ch - 0x20][1], 24);
-            write_pixel(pos_x, pos_y + 2, lcd_font32_map1[ch - 0x20][2], 24);
-            write_pixel(pos_x, pos_y + 3, lcd_font32_map1[ch - 0x20][3], 24);
-            pos_y += 24;
+            int font_length;
+            for (font_length = 0; font_length < 24; ++font_length) {
+                if (lcd_font32_map1[ch - 0x20][0][font_length] == 0x01) {
+                    break;
+                }
+            }
+            write_pixel(pos_x + 0, pos_y, lcd_font32_map1[ch - 0x20][0], font_length);
+            write_pixel(pos_x + 1, pos_y, lcd_font32_map1[ch - 0x20][1], font_length);
+            write_pixel(pos_x + 2, pos_y, lcd_font32_map1[ch - 0x20][2], font_length);
+            write_pixel(pos_x + 3, pos_y, lcd_font32_map1[ch - 0x20][3], font_length);
+            pos_y += font_length;
             return ch;
         }
     }
@@ -140,12 +175,15 @@ SMR12864::SMR12864()
 
 void SMR12864::reset()
 {
+    pos_x = 0;
+    pos_y = 0;
+    font_size = 8;
     set_cs(0, false);
     set_cs(1, false);
-    set_e(true);
+    set_e(false);
     set_rw(false);
     set_rs(false);
-    set_bus(0);
+    set_bus_mode(false);
 
     set_rst(false);
     delay_ms(1);
@@ -153,43 +191,83 @@ void SMR12864::reset()
     delay_ms(30);
 
     write_command(0, 0xc0);  // set display start line
-    write_command(1, 0xc0);
+    write_command(1, 0xc0);  // set display start line
     write_command(0, 0x3f);  // set display on
-    write_command(1, 0x3f);
+    write_command(1, 0x3f);  // set display on
+    cls();
+}
+
+void SMR12864::cls()
+{
+    pos_x = 0;
+    pos_y = 0;
+    font_size = 8;
+    uint8_t data[lcd_width] = {};
+    for (uint32_t i = 0; i < lcd_height / 8; ++i) {
+        write_pixel(i, 0, data, lcd_width);
+    }
 }
 
 void SMR12864::write_command(uint8_t chip_id, uint8_t data)
 {
-    if (chip_id == 0) {
-        set_cs(0, true);
-        set_cs(1, false);
-    } else {
-        set_cs(0, false);
-        set_cs(1, true);
+    while (read_status(chip_id) & 0x80) {
     }
-    set_rs(false);
-    set_e(false);
-    set_bus(data);
 
+    set_cs(0, chip_id == 0);
+    set_cs(1, chip_id == 1);
+    set_rs(false);
+    set_rw(false);
     delay_us(1);
+
     set_e(true);
+    set_bus_mode(true);
+    set_bus(data);
     delay_us(1);
+
+    set_e(false);
+    delay_us(1);
+
+    set_bus_mode(false);
 }
 
 void SMR12864::write_data(uint8_t chip_id, uint8_t data)
 {
-    if (chip_id == 0) {
-        set_cs(0, true);
-        set_cs(1, false);
-    } else {
-        set_cs(0, false);
-        set_cs(1, true);
+    while (read_status(chip_id) & 0x80) {
     }
-    set_rs(true);
-    set_e(false);
-    set_bus(data);
 
+    set_cs(0, chip_id == 0);
+    set_cs(1, chip_id == 1);
+    set_rs(true);
+    set_rw(false);
     delay_us(1);
+
+    set_e(true);
+    set_bus_mode(true);
+    set_bus(data);
+    delay_us(1);
+
+    set_e(false);
+    delay_us(1);
+
+    set_bus_mode(false);
+}
+
+uint8_t SMR12864::read_status(uint8_t chip_id)
+{
+    set_cs(0, chip_id == 0);
+    set_cs(1, chip_id == 1);
+    set_rs(false);
+    set_rw(true);
+    set_bus_mode(false);
+    set_rw(true);
+    delay_us(1);
+
     set_e(true);
     delay_us(1);
+
+    uint8_t state = get_bus();
+    set_e(false);
+    delay_us(1);
+
+    return state;
 }

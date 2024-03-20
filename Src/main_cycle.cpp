@@ -32,6 +32,7 @@ uint32_t adc_sampling_freq = 1 * 1000 * 1000;
 SMR12864 lcd;
 
 void set_dac_output(int freq, int amp);
+void measure_voltage_current();
 
 void main_loop()
 {
@@ -39,16 +40,16 @@ void main_loop()
     setbuf(stdin, NULL);
     printf("Hello, I am H730 working at %ld MHz\n", SystemCoreClock / 1000 / 1000);
 
-
     lcd.reset();
+    delay_ms(200);
     lcd.locate(0, 0);
-    lcd.printf("Hello %ld MHz", SystemCoreClock / 1000 / 1000);
-    lcd.locate(1, 0);
+    lcd.printf("Hello, I'm working\nat %ld MHz", SystemCoreClock / 1000 / 1000);
+    lcd.locate(2, 0);
     lcd.set_fontsize(16);
-    lcd.printf("Hello\n");
-    lcd.locate(3, 0);
+    lcd.printf("Hoge");
+    lcd.locate(4, 0);
     lcd.set_fontsize(32);
-    lcd.printf("Hello\n");
+    lcd.printf("Piyo");
 
     delay_ms(10);
     HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET_LINEARITY, ADC_DIFFERENTIAL_ENDED);
@@ -62,14 +63,16 @@ void main_loop()
 
     HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)dac_dma_buffer, dac_dma_buf_len, DAC_ALIGN_12B_R);
     MODIFY_REG(((DMA_Stream_TypeDef*)hdac1.DMA_Handle1->Instance)->CR, DMA_IT_TC | DMA_IT_HT, 0);
-    set_dac_output(100000, 1000);
 
-    HAL_TIM_Base_Start(&htim15);  // 1MHz TIM for ADC
-    HAL_TIM_Base_Start(&htim7);   // 10MHz TIM for DAC
+    HAL_TIM_Base_Start(&htim15);                     // 1MHz TIM for ADC
+    HAL_TIM_Base_Start(&htim7);                      // 10MHz TIM for DAC
+    HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);  // Encoder 1
+    HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);  // Encoder 2
+
+    set_dac_output(100 * 1000, 1000);
 
     init_done = true;
     while (1) {
-        printf("Tick %d, %d\n", adc1_dma_buffer[0], adc2_dma_buffer[0]);
         delay_ms(1000);
     }
 }
@@ -86,7 +89,7 @@ void measure_voltage_current()
         }
 
         adc1_data_buffer[write_ptr] = adc1_dma_buffer[dma_next_read];
-        adc1_data_buffer[write_ptr] = adc2_dma_buffer[dma_next_read];
+        adc2_data_buffer[write_ptr] = adc2_dma_buffer[dma_next_read];
         dma_next_read = (dma_next_read + 1) % adc_dma_buf_len;
         ++write_ptr;
     }
@@ -95,7 +98,7 @@ void measure_voltage_current()
 void set_dac_output(int freq, int amp)
 {
     for (uint32_t i = 0; i < dac_dma_buf_len; ++i) {
-        dac_dma_buffer[i] = 2084 + amp * sinf(2 * PI * i * freq / dac_sampling_freq);
+        dac_dma_buffer[i] = 2048 + amp * sinf(2 * PI * i * freq / dac_sampling_freq);
     }
 }
 
