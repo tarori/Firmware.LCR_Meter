@@ -6,16 +6,18 @@
 #include "main.h"
 #include "adc.h"
 
+#define ARM_MATH_CM7
+#include "arm_math.h"
+
 #define FIELD_GET(mask, reg) (((reg) & (mask)) >> (__builtin_ffsll(mask) - 1))
 #define __ALIGN_MASK(x, mask) ((x) & ~(mask))
 #define ALIGN(x, a) __ALIGN_MASK(x, (typeof(x))(a)-1)
-#define PI (3.1415926535897932384626433832795028841971)
 
-static inline void delay_us(uint32_t us)
+static inline void delay_us(uint64_t us)
 {
     uint32_t old_val = SysTick->VAL;
-    uint32_t end_val = us * (SystemCoreClock / 1000 / 1000);
-    uint32_t elapsed = 0;
+    uint64_t end_val = us * (SystemCoreClock / 1000 / 1000);
+    uint64_t elapsed = 0;
     while (elapsed < end_val) {
         uint32_t new_val = SysTick->VAL;
         if (new_val < old_val) {
@@ -41,14 +43,13 @@ static inline float my_fast_sin(double x)
 {
     float in = fmod(x, 2 * PI);
 
-    return sinf(in);
+    return arm_sin_f32(in);
 }
 
 static inline float my_fast_cos(double x)
 {
     float in = fmod(x, 2 * PI);
-
-    return cosf(in);
+    return arm_cos_f32(in);
 }
 
 class ScopedLock

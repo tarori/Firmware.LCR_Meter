@@ -35,20 +35,48 @@ constexpr uint32_t adc_data_buf_len = 12000;
 __attribute__((section(".RAM_D1_DMA"))) uint16_t adc_data_buffer[2][adc_data_buf_len];
 float adc_sampling_freq = 120e+6 / 100;
 
+constexpr int freq_list_length = 10;
+
+struct Settings {
+    int freq_list[freq_list_length] = {1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, 1000000};
+
+    float adc_ratio = -1.0f;
+    float adc_delay_err = 1.1e-9f;
+
+    float short_resistance = 0.0f;
+    float short_inductance = 0.0e-6f;
+    float open_resistance = 1.0e+24f;
+    float open_capacitance = 0.36e-12f;
+
+    Complex pga_gain_table[freq_list_length][4] = {
+        // 1, 2.9608, 10.067, 30.2
+        {{1, 0}, {2.962, 0}, {10.066, 0}, {30.22, 0}},
+        {{1, 0}, {2.962, 0}, {10.066, 0}, {30.22, 0}},
+        {{1, 0}, {2.962, 0}, {10.066, 0}, {30.22, -0.041}},
+        {{1, 0}, {2.962, 0}, {10.066, -0.012}, {30.22, -0.087}},
+        {{1, 0}, {2.962, 0}, {10.066, -0.031}, {30.22, -0.220}},
+        {{1, 0}, {2.962, 0}, {10.066, -0.074}, {30.18, -0.612}},
+        {{1, 0}, {2.962, 0}, {10.065, -0.152}, {30.18, -1.210}},
+        {{1, 0}, {2.962, -0.014}, {10.038, -0.311}, {30.05, -2.171}},
+        {{1, 0}, {2.961, -5.51}, {10.002, -0.750}, {29.06, -5.506}},
+        {{1, 0}, {2.959, -0.061}, {9.831, -1.289}, {27.187, -8.981}}};
+
+    float tia_res_table[4] = {20, 100, 1000, 20000};
+    float tia_cap_table[4] = {0e-12, 0e-12, 0e-12, 0e-12};
+} settings;
+
 SMR12864 lcd;
 
 float set_dac_output(int freq, float v_rms);
 void measure_voltage_current();
-bool adc_is_clipping(uint16_t* adc_data, uint32_t data_len, bool strict);
-void pga_calibration(int freq);
+bool adc_is_clipping(LCR_ID_IV id, bool strict);
+void pga_calibration();
+void adc_calibration();
 void pga_set_gain(LCR_ID_IV id, int gain_id);
 void tia_set_gain(int gain_id);
 void coupling_set_dc(bool cur, bool pot);
-struct Complex calc_fourier(uint16_t* data, uint32_t freq);
+struct Complex calc_fourier(LCR_ID_IV id, uint32_t freq);
 void set_dac_bw(int freq);
-
-float pga_gain_table[4] = {1, 2.908, 10.067, 30.2};
-float tia_gain_table[4] = {20, 100, 1000, 20000};
 
 void main_loop()
 {
@@ -84,6 +112,8 @@ void main_loop()
     HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)dac_dma_buffer, dac_dma_buf_len, DAC_ALIGN_12B_R);
     MODIFY_REG(((DMA_Stream_TypeDef*)hdac1.DMA_Handle1->Instance)->CR, DMA_IT_TC | DMA_IT_HT, 0);
 
+    delay_ms(10);
+
     HAL_TIM_Base_Start(&htim15);                     // TIM for ADC
     HAL_TIM_Base_Start(&htim7);                      // TIM for DAC
     HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);  // Encoder 1
@@ -91,17 +121,16 @@ void main_loop()
     TIM3->CNT = INT16_MAX;
     TIM4->CNT = INT16_MAX;
 
-    uint32_t freq_table[] = {1, 2, 5, 10, 20, 50, 100, 200, 500, 1000};
     uint32_t freq = 0;
     uint32_t freq_id = 6;  // 100kHz Default
-    TIM4->CNT -= 4 * ((TIM4->CNT / 4 - freq_id) % (sizeof(freq_table) / sizeof(freq_table[0])));
+    TIM4->CNT -= 4 * ((TIM4->CNT / 4 - freq_id) % freq_list_length);
     float v_rms = 1.0f;
     bool dc_couple = true;
 
     init_done = true;
     while (1) {
-        freq_id = (TIM4->CNT / 4) % (sizeof(freq_table) / sizeof(freq_table[0]));
-        freq = 1000 * freq_table[freq_id];
+        freq_id = (TIM4->CNT / 4) % freq_list_length;
+        freq = settings.freq_list[freq_id];
 
         if (botton2_pushed) {
             botton2_pushed = false;
@@ -115,9 +144,10 @@ void main_loop()
         }
         delay_ms(100);
 
-        if (0) {
-            pga_calibration(freq);
-            continue;
+        while (0) {
+            // adc_calibration();
+            pga_calibration();
+            delay_ms(5000);
         }
 
         int tia_gain_id = 3;
@@ -130,7 +160,7 @@ void main_loop()
             tia_set_gain(tia_gain_id);
             delay_ms(10);
             measure_voltage_current();
-            if (adc_is_clipping(adc_data_buffer[LCR_ID_I], adc_data_buf_len, freq > 200000) && tia_gain_id > 0) {
+            if (adc_is_clipping(LCR_ID_I, freq > 200000) && tia_gain_id > 0) {
                 --tia_gain_id;
             } else {
                 break;
@@ -144,10 +174,10 @@ void main_loop()
             pga_set_gain(LCR_ID_V, pga_v_gain_id);
             delay_ms(1);
             measure_voltage_current();
-            if (adc_is_clipping(adc_data_buffer[LCR_ID_V], adc_data_buf_len, false) && pga_v_gain_id > 0) {
+            if (adc_is_clipping(LCR_ID_V, false) && pga_v_gain_id > 0) {
                 pga_v_gain_id--;
                 continue;
-            } else if (adc_is_clipping(adc_data_buffer[LCR_ID_I], adc_data_buf_len, false) && pga_i_gain_id > 0) {
+            } else if (adc_is_clipping(LCR_ID_I, false) && pga_i_gain_id > 0) {
                 pga_i_gain_id--;
                 continue;
             } else {
@@ -163,28 +193,26 @@ void main_loop()
 
         for (int i = 0; i < measurement_cycle; ++i) {
             measure_voltage_current();
-            voltage = calc_fourier(adc_data_buffer[LCR_ID_V], freq);
-            current = calc_fourier(adc_data_buffer[LCR_ID_I], freq) * -1.0f;
+            voltage = calc_fourier(LCR_ID_V, freq);
+            current = calc_fourier(LCR_ID_I, freq);
 
-            current = current * (1.0f / tia_gain_table[tia_gain_id]);
+            Complex tia_conductance = Complex{1 / settings.tia_res_table[tia_gain_id], 2 * (float)PI * freq * settings.tia_cap_table[tia_gain_id]};
 
-            voltage = voltage * (1.0f / pga_gain_table[pga_v_gain_id]);
-            current = current * (1.0f / pga_gain_table[pga_i_gain_id]);
+            current = current * tia_conductance;
 
-            impedance = (voltage / current);
+            voltage = voltage / settings.pga_gain_table[freq_id][pga_v_gain_id];
+            current = current / settings.pga_gain_table[freq_id][pga_i_gain_id];
+
+            impedance = impedance + (voltage / current) / measurement_cycle;
         }
 
         printf("V: %.4f, I: %4f, Z: %4f, TIA: %d, PGA: %d, %d\n", voltage.abs, current.abs, impedance.abs, tia_gain_id, pga_v_gain_id, pga_i_gain_id);
 
         float omega = 2 * PI * freq;
-        float short_resistance = 0.0f;
-        float short_inductance = 0.0e-6f;
-        float open_resistance = 1.0e+24f;
-        float open_capacitance = 0.36e-12f;
 
-        impedance = impedance - Complex(short_resistance, omega * short_inductance);
+        impedance = impedance - Complex(settings.short_resistance, omega * settings.short_inductance);
         Complex conductance = Complex(1.0f) / impedance;
-        conductance = conductance - Complex(1.0f / open_resistance, omega * open_capacitance);
+        conductance = conductance - Complex(1.0f / settings.open_resistance, omega * settings.open_capacitance);
         impedance = Complex(1.0f) / conductance;
 
         bool sp_mode = true;  // series
@@ -297,21 +325,24 @@ void measure_voltage_current()
     }
 }
 
-struct Complex calc_fourier(uint16_t* data, uint32_t freq)
+struct Complex
+calc_fourier(LCR_ID_IV id, uint32_t freq)
 {
     double real_sum = 0;
+    float ratio = (id == LCR_ID_V) ? 1 : settings.adc_ratio;
+    float delay = (id == LCR_ID_V) ? 0 : settings.adc_delay_err;
     for (uint32_t i = 0; i < adc_data_buf_len; ++i) {
-        float cos_val = my_fast_cos(2 * PI * i * freq / (double)adc_sampling_freq);
-        real_sum += data[i] * cos_val / adc_data_buf_len;
+        float cos_val = my_fast_cos(2 * PI * freq * (delay + i / (double)adc_sampling_freq));
+        real_sum += adc_data_buffer[id][i] * cos_val / adc_data_buf_len;
     }
 
     double im_sum = 0;
     for (uint32_t i = 0; i < adc_data_buf_len; ++i) {
-        float sin_val = -my_fast_sin(2 * PI * i * freq / (double)adc_sampling_freq);
-        im_sum += data[i] * sin_val / adc_data_buf_len;
+        float sin_val = -my_fast_sin(2 * PI * freq * (delay + i / (double)adc_sampling_freq));
+        im_sum += adc_data_buffer[id][i] * sin_val / adc_data_buf_len;
     }
 
-    return Complex(real_sum, im_sum);
+    return Complex(ratio * real_sum, ratio * im_sum);
 }
 
 float set_dac_output(int freq, float v_rms)
@@ -329,10 +360,10 @@ float set_dac_output(int freq, float v_rms)
     return v_rms / k;
 }
 
-bool adc_is_clipping(uint16_t* adc_data, uint32_t data_len, bool strict)
+bool adc_is_clipping(LCR_ID_IV id, bool strict)
 {
-    uint16_t min_val = *std::min_element(adc_data, adc_data + data_len);
-    uint16_t max_val = *std::max_element(adc_data, adc_data + data_len);
+    uint16_t min_val = *std::min_element(adc_data_buffer[id], adc_data_buffer[id] + adc_data_buf_len);
+    uint16_t max_val = *std::max_element(adc_data_buffer[id], adc_data_buffer[id] + adc_data_buf_len);
     if (strict) {
         return min_val < UINT16_MAX * 0.4f || max_val > UINT16_MAX * 0.6f;
     } else {
@@ -353,35 +384,74 @@ void coupling_set_dc(bool cur, bool pot)
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, pot ? GPIO_PIN_SET : GPIO_PIN_RESET);
 }
 
-void pga_calibration(int freq)
+
+void adc_calibration()
 {
     tia_set_gain(0);
-    int pga_v_gain_id = 0;
-    int pga_i_gain_id = 0;
-    while (1) {
-        pga_set_gain(LCR_ID_V, pga_v_gain_id);
-        pga_set_gain(LCR_ID_I, pga_i_gain_id);
-        set_iv_mux_sw(true, false);
-        delay_ms(100);
-        measure_voltage_current();
+    int freq_id = 9;
+    int freq = settings.freq_list[freq_id];
+    set_dac_output(freq, 1.0f);
+    tia_set_gain(0);
+    pga_set_gain(LCR_ID_V, 0);
+    pga_set_gain(LCR_ID_I, 0);
+    set_iv_mux_sw(true, false);
+    delay_ms(100);
 
-        if (adc_is_clipping(adc_data_buffer[LCR_ID_I], adc_data_buf_len, false)
-            || adc_is_clipping(adc_data_buffer[LCR_ID_V], adc_data_buf_len, false)) {
-            printf("Warn: ADC is clipping\n");
-        }
-
-        Complex voltage = calc_fourier(adc_data_buffer[LCR_ID_V], freq);
-        Complex current = calc_fourier(adc_data_buffer[LCR_ID_I], freq);
-        Complex ratio = voltage / current;
-        printf("%dkHz, Gain: %d, %d, abs: %.4f, %.4f\n", freq / 1000, pga_v_gain_id, pga_i_gain_id, voltage.abs, current.abs);
-        printf("Ratio: %.5f + %.5fi, |%.6f|\n", ratio.real, ratio.im, ratio.abs);
-        delay_ms(100);
-
-        pga_v_gain_id++;
-        if (pga_v_gain_id >= 6 || pga_i_gain_id >= 6) {
-            break;
-        }
+    measure_voltage_current();
+    if (adc_is_clipping(LCR_ID_I, false) || adc_is_clipping(LCR_ID_V, false)) {
+        printf("Warn: ADC is clipping\n");
     }
+    Complex voltage = calc_fourier(LCR_ID_V, freq);
+    Complex current = calc_fourier(LCR_ID_I, freq);
+    Complex ratio = current / voltage;
+    float delay_s = -atan2(ratio.im, ratio.real) / 2 / PI / freq;
+    printf("ADC Cal Ratio: %f, Delay %fns, Complex: %f+%fi\n", ratio.abs, delay_s * 1.0e+9, ratio.real, ratio.im);
+}
+
+void pga_calibration()
+{
+    tia_set_gain(0);
+    for (int freq_id = 0; freq_id < freq_list_length; ++freq_id) {
+        int freq = settings.freq_list[freq_id];
+        int pga_v_gain_id = 0;
+        int pga_i_gain_id = 0;
+        printf("{");
+        while (1) {
+            float v_rms = 0.5f / settings.pga_gain_table[freq_id][pga_v_gain_id].abs;
+            set_dac_output(freq, v_rms);
+            pga_set_gain(LCR_ID_V, pga_v_gain_id);
+            pga_set_gain(LCR_ID_I, pga_i_gain_id);
+            set_iv_mux_sw(true, false);
+            delay_ms(10);
+
+            int measurement_cycle = 16;
+            Complex ratio = Complex(0.0f);
+
+            for (int i = 0; i < measurement_cycle; ++i) {
+                measure_voltage_current();
+                if (adc_is_clipping(LCR_ID_I, false)
+                    || adc_is_clipping(LCR_ID_V, false)) {
+                    printf("Warn: ADC is clipping\n");
+                }
+
+                Complex voltage = calc_fourier(LCR_ID_V, freq);
+                Complex current = calc_fourier(LCR_ID_I, freq);
+                ratio = ratio + (voltage / current) / measurement_cycle;
+            }
+
+            // printf("%dkHz, %d/%d, Ratio: %.5f + %.5fi = |%.6f|\n", freq / 1000, pga_v_gain_id, pga_i_gain_id, ratio.real, ratio.im, ratio.abs);
+            printf("{%.4f,%.4f}", ratio.real, ratio.im);
+            pga_v_gain_id++;
+            if (pga_v_gain_id >= 4 || pga_i_gain_id >= 4) {
+                break;
+            } else {
+                printf(",");
+            }
+        }
+        printf("},\n");
+    }
+
+    delay_ms(1000000);
 }
 
 void pga_set_gain(LCR_ID_IV id, int gain_id)

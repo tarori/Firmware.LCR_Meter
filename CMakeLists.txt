@@ -51,17 +51,18 @@ else()
 endif()
 
 
-include_directories("Inc" "${CubeMX_dir}/Core/Inc" "${CubeMX_dir}/Drivers/CMSIS/Device/ST/STM32H7xx/Include" "${CubeMX_dir}/Drivers/CMSIS/Include" "${CubeMX_dir}/Drivers/STM32H7xx_HAL_Driver/Inc" "${CubeMX_dir}/Drivers/STM32H7xx_HAL_Driver/Inc/Legacy")
+include_directories("Inc" "${CubeMX_dir}/Core/Inc" "${CubeMX_dir}/Drivers/CMSIS/Device/ST/STM32H7xx/Include" "${CubeMX_dir}/Drivers/CMSIS/Include" "${CubeMX_dir}/Drivers/STM32H7xx_HAL_Driver/Inc" "${CubeMX_dir}/Drivers/STM32H7xx_HAL_Driver/Inc/Legacy" "CMSIS_DSP/Include")
 
 file(GLOB PERIPH_LIB_SOURCE "${CubeMX_dir}/Core/Src/*.c" "${CubeMX_dir}/Drivers/STM32H7xx_HAL_Driver/Src/*.c" "${CubeMX_dir}/*.s")
 list(REMOVE_ITEM PERIPH_LIB_SOURCE "${CubeMX_dir}/Core/Src/main.c")
 list(REMOVE_ITEM PERIPH_LIB_SOURCE "${CubeMX_dir}/Core/Src/stm32h7xx_it.c")
+file(GLOB CMSIS_DSP_SOURCE "CMSIS_DSP/Source/arm_cos_f32.c" "CMSIS_DSP/Source/arm_sin_f32.c" "CMSIS_DSP/Source/arm_common_tables.c")
 
 set(CMAKE_EXE_LINKER_FLAGS "-mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard -specs=nano.specs -T ${CMAKE_SOURCE_DIR}/Src/STM32H730VBTx_FLASH.ld -L. -lc -lm -u _printf_float -Wl,--no-warn-rwx-segment -Wl,--gc-sections -Wl,-Map=${CMAKE_PROJECT_NAME}.map,--cref -Wl,--print-memory-usage")
 
 file(GLOB MAIN_SOURCE "Src/*.cpp" "Src/*.c")
 
-add_executable(${PROJECT_NAME}.elf ${MAIN_SOURCE} ${PERIPH_LIB_SOURCE})
+add_executable(${PROJECT_NAME}.elf ${MAIN_SOURCE} ${PERIPH_LIB_SOURCE} ${CMSIS_DSP_SOURCE})
 add_custom_target(${PROJECT_NAME}.hex ALL
     COMMAND arm-none-eabi-objcopy --output-format=ihex ${PROJECT_NAME}.elf ${PROJECT_NAME}.hex DEPENDS ${PROJECT_NAME}.elf)
 add_custom_target(write COMMAND /mnt/c/Program\ Files/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI.exe -c port=SWD freq=1000 -d ./${PROJECT_NAME}.elf -s DEPENDS ${PROJECT_NAME}.hex)
