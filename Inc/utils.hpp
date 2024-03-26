@@ -2,6 +2,7 @@
 #include <stm32h7xx.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <math.h>
 #include "main.h"
 #include "adc.h"
 
@@ -34,6 +35,20 @@ static inline void delay_ms(uint32_t ms)
 static inline uint32_t dma_get_last_index(ADC_HandleTypeDef* hadc, uint32_t buf_size)
 {
     return (2 * buf_size - 1 - __HAL_DMA_GET_COUNTER(hadc->DMA_Handle)) % buf_size;
+}
+
+static inline float my_fast_sin(double x)
+{
+    float in = fmod(x, 2 * PI);
+
+    return sinf(in);
+}
+
+static inline float my_fast_cos(double x)
+{
+    float in = fmod(x, 2 * PI);
+
+    return cosf(in);
 }
 
 class ScopedLock

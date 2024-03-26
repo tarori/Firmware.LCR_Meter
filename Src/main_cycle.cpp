@@ -15,7 +15,8 @@
 #include "complex.hpp"
 
 volatile bool init_done = false;
-volatile bool botton_pushed = false;
+volatile bool botton1_pushed = false;
+volatile bool botton2_pushed = false;
 
 enum LCR_ID_IV {
     LCR_ID_I = 0,
@@ -38,12 +39,13 @@ SMR12864 lcd;
 
 float set_dac_output(int freq, float v_rms);
 void measure_voltage_current();
-bool adc_is_clipping(uint16_t* adc_data, uint32_t data_len);
+bool adc_is_clipping(uint16_t* adc_data, uint32_t data_len, bool strict);
 void pga_calibration(int freq);
 void pga_set_gain(LCR_ID_IV id, int gain_id);
 void tia_set_gain(int gain_id);
 void coupling_set_dc(bool cur, bool pot);
 struct Complex calc_fourier(uint16_t* data, uint32_t freq);
+void set_dac_bw(int freq);
 
 float pga_gain_table[4] = {1, 2.908, 10.067, 30.2};
 float tia_gain_table[4] = {20, 100, 1000, 20000};
@@ -56,6 +58,7 @@ void main_loop()
 
     tia_set_gain(0);
     coupling_set_dc(true, true);
+    delay_ms(100);
 
     lcd.reset();
     delay_ms(200);
@@ -85,18 +88,25 @@ void main_loop()
     HAL_TIM_Base_Start(&htim7);                      // TIM for DAC
     HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);  // Encoder 1
     HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);  // Encoder 2
+    TIM3->CNT = INT16_MAX;
+    TIM4->CNT = INT16_MAX;
 
+    uint32_t freq_table[] = {1, 2, 5, 10, 20, 50, 100, 200, 500, 1000};
     uint32_t freq = 0;
     uint32_t freq_id = 6;  // 100kHz Default
+    TIM4->CNT -= 4 * ((TIM4->CNT / 4 - freq_id) % (sizeof(freq_table) / sizeof(freq_table[0])));
     float v_rms = 1.0f;
+    bool dc_couple = true;
 
     init_done = true;
     while (1) {
-        if (botton_pushed || freq == 0) {
-            botton_pushed = false;
-            uint32_t freq_table[] = {1, 2, 5, 10, 20, 50, 100, 200, 500, 1000};
-            freq = 1000 * freq_table[freq_id];
-            freq_id = (freq_id + 1) % (sizeof(freq_table) / sizeof(uint32_t));
+        freq_id = (TIM4->CNT / 4) % (sizeof(freq_table) / sizeof(freq_table[0]));
+        freq = 1000 * freq_table[freq_id];
+
+        if (botton2_pushed) {
+            botton2_pushed = false;
+            dc_couple = !dc_couple;
+            coupling_set_dc(dc_couple, dc_couple);
         }
 
         v_rms = set_dac_output(freq, v_rms);
@@ -120,7 +130,7 @@ void main_loop()
             tia_set_gain(tia_gain_id);
             delay_ms(10);
             measure_voltage_current();
-            if (adc_is_clipping(adc_data_buffer[LCR_ID_I], adc_data_buf_len) && tia_gain_id > 0) {
+            if (adc_is_clipping(adc_data_buffer[LCR_ID_I], adc_data_buf_len, freq > 200000) && tia_gain_id > 0) {
                 --tia_gain_id;
             } else {
                 break;
@@ -134,10 +144,10 @@ void main_loop()
             pga_set_gain(LCR_ID_V, pga_v_gain_id);
             delay_ms(1);
             measure_voltage_current();
-            if (adc_is_clipping(adc_data_buffer[LCR_ID_V], adc_data_buf_len) && pga_v_gain_id > 0) {
+            if (adc_is_clipping(adc_data_buffer[LCR_ID_V], adc_data_buf_len, false) && pga_v_gain_id > 0) {
                 pga_v_gain_id--;
                 continue;
-            } else if (adc_is_clipping(adc_data_buffer[LCR_ID_I], adc_data_buf_len) && pga_i_gain_id > 0) {
+            } else if (adc_is_clipping(adc_data_buffer[LCR_ID_I], adc_data_buf_len, false) && pga_i_gain_id > 0) {
                 pga_i_gain_id--;
                 continue;
             } else {
@@ -170,7 +180,7 @@ void main_loop()
         float short_resistance = 0.0f;
         float short_inductance = 0.0e-6f;
         float open_resistance = 1.0e+24f;
-        float open_capacitance = 0.00e-12f;
+        float open_capacitance = 0.36e-12f;
 
         impedance = impedance - Complex(short_resistance, omega * short_inductance);
         Complex conductance = Complex(1.0f) / impedance;
@@ -193,7 +203,7 @@ void main_loop()
         }
 
         lcd.cls();
-        lcd.printf("%5dkHz %3.1fVrms", freq / 1000, v_rms);
+        lcd.printf("%5dkHz %3.1fVrms %s", freq / 1000, v_rms, dc_couple ? "DC" : "AC");
 
         lcd.locate(1, 6);
         lcd.printf("%s Z ", sp_mode ? "Ser" : "Par");
@@ -271,6 +281,7 @@ void main_loop()
 
 void measure_voltage_current()
 {
+    ScopedLock lock;
     uint16_t dma_current_ptr = dma_get_last_index(&hadc1, adc_dma_buf_len);
     uint16_t dma_next_read = dma_current_ptr;
     uint32_t write_ptr = 0;
@@ -290,13 +301,13 @@ struct Complex calc_fourier(uint16_t* data, uint32_t freq)
 {
     double real_sum = 0;
     for (uint32_t i = 0; i < adc_data_buf_len; ++i) {
-        float cos_val = cosf(2 * PI * i * freq / adc_sampling_freq);
+        float cos_val = my_fast_cos(2 * PI * i * freq / (double)adc_sampling_freq);
         real_sum += data[i] * cos_val / adc_data_buf_len;
     }
 
     double im_sum = 0;
     for (uint32_t i = 0; i < adc_data_buf_len; ++i) {
-        float sin_val = -sinf(2 * PI * i * freq / adc_sampling_freq);
+        float sin_val = -my_fast_sin(2 * PI * i * freq / (double)adc_sampling_freq);
         im_sum += data[i] * sin_val / adc_data_buf_len;
     }
 
@@ -311,18 +322,23 @@ float set_dac_output(int freq, float v_rms)
         v_rms = 1.4f;
     }
     for (uint32_t i = 0; i < dac_dma_buf_len; ++i) {
-        dac_dma_buffer[i] = 2250 + 1285.0f * v_rms * sinf(2 * PI * i * freq / dac_sampling_freq);
+        dac_dma_buffer[i] = 2250 + 1285.0f * v_rms * my_fast_sin(2 * PI * i * freq / (double)dac_sampling_freq);
     }
+
+    set_dac_bw(freq);
     return v_rms / k;
 }
 
-bool adc_is_clipping(uint16_t* adc_data, uint32_t data_len)
+bool adc_is_clipping(uint16_t* adc_data, uint32_t data_len, bool strict)
 {
     uint16_t min_val = *std::min_element(adc_data, adc_data + data_len);
     uint16_t max_val = *std::max_element(adc_data, adc_data + data_len);
-    return min_val < UINT16_MAX * 0.2f || max_val > UINT16_MAX * 0.8f;
+    if (strict) {
+        return min_val < UINT16_MAX * 0.4f || max_val > UINT16_MAX * 0.6f;
+    } else {
+        return min_val < UINT16_MAX * 0.2f || max_val > UINT16_MAX * 0.8f;
+    }
 }
-
 
 void set_iv_mux_sw(bool sw1, bool sw2)
 {
@@ -349,8 +365,8 @@ void pga_calibration(int freq)
         delay_ms(100);
         measure_voltage_current();
 
-        if (adc_is_clipping(adc_data_buffer[LCR_ID_I], adc_data_buf_len)
-            || adc_is_clipping(adc_data_buffer[LCR_ID_V], adc_data_buf_len)) {
+        if (adc_is_clipping(adc_data_buffer[LCR_ID_I], adc_data_buf_len, false)
+            || adc_is_clipping(adc_data_buffer[LCR_ID_V], adc_data_buf_len, false)) {
             printf("Warn: ADC is clipping\n");
         }
 
@@ -446,6 +462,42 @@ void tia_set_gain(int gain_id)
     }
 }
 
+
+void set_dac_bw(int freq)
+{
+    int bw_id;
+    if (freq > 500000) {
+        bw_id = 3;
+    } else if (freq > 100000) {
+        bw_id = 2;
+    } else if (freq > 20000) {
+        bw_id = 1;
+    } else {
+        bw_id = 0;
+    }
+
+    switch (bw_id) {
+    case 0:
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_RESET);
+        break;
+    case 1:
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_RESET);
+        break;
+    case 2:
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_SET);
+        break;
+    case 3:
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_SET);
+        break;
+    default:
+        printf("DAC BW Error\n");
+    }
+}
+
 void callback_1ms()
 {
     if (!init_done) {
@@ -466,6 +518,24 @@ void SysTick_Handler(void)
 extern DMA_HandleTypeDef hdma_adc1;
 extern DMA_HandleTypeDef hdma_adc2;
 extern DMA_HandleTypeDef hdma_dac1_ch1;
+
+/**
+ * @brief This function handles EXTI line[9:5] interrupts.
+ */
+void EXTI9_5_IRQHandler(void)
+{
+    HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_8);
+    botton1_pushed = true;
+}
+
+/**
+ * @brief This function handles EXTI line[15:10] interrupts.
+ */
+void EXTI15_10_IRQHandler(void)
+{
+    HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_14);
+    botton2_pushed = true;
+}
 
 /**
  * @brief This function handles DMA1 stream0 global interrupt.
