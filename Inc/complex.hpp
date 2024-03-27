@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include <math.h>
+#include <algorithm>
 
 struct Complex {
     float real;
@@ -41,3 +42,21 @@ struct Complex {
         return y;
     }
 };
+
+Complex mid(Complex data[], const int len)
+{
+    float real_list[len], im_list[len];
+    for (int i = 0; i < len; ++i) {
+        real_list[i] = data[i].real;
+        im_list[i] = data[i].im;
+    }
+    std::sort(&real_list[0], &real_list[len - 1]);
+    std::sort(&im_list[0], &im_list[len - 1]);
+    float real_med = (len % 2 == 0)
+                         ? (real_list[len / 2] + real_list[len / 2 - 1]) / 2
+                         : real_list[len / 2];
+    float im_med = (len % 2 == 0)
+                       ? (im_list[len / 2] + im_list[len / 2 - 1]) / 2
+                       : im_list[len / 2];
+    return Complex(real_med, im_med);
+}

@@ -43,13 +43,13 @@ static inline float my_fast_sin(double x)
 {
     float in = fmod(x, 2 * PI);
 
-    return arm_sin_f32(in);
+    return sinf(in);
 }
 
 static inline float my_fast_cos(double x)
 {
     float in = fmod(x, 2 * PI);
-    return arm_cos_f32(in);
+    return cosf(in);
 }
 
 class ScopedLock

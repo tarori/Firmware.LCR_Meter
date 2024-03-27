@@ -40,7 +40,7 @@ constexpr int freq_list_length = 13;
 struct Settings {
     int freq_list[freq_list_length] = {40, 120, 400, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, 1000000};
 
-    float adc_ratio = -1.0f;
+    float adc_ratio = -1;
     float adc_delay_err = 1.1e-9f;
 
     float short_resistance = 0.0f;
@@ -50,19 +50,19 @@ struct Settings {
 
     Complex pga_gain_table[freq_list_length][4] = {
         // 1, 2.9608, 10.067, 30.2
-        {{1, 0.0000}, {2.9619, 0.0000}, {10.0660, -0.0}, {30.2187, -0.0}},
-        {{1, 0.0000}, {2.9619, 0.0000}, {10.0660, -0.0}, {30.2187, -0.0}},
-        {{1, 0.0000}, {2.9619, 0.0000}, {10.0660, -0.0}, {30.2187, -0.0}},
-        {{1, 0.0000}, {2.9619, 0.0000}, {10.0660, -0.0011}, {30.2187, -0.0085}},
-        {{1, 0.0000}, {2.9619, -0.0001}, {10.0662, -0.0026}, {30.2194, -0.0209}},
-        {{1, 0.0000}, {2.9619, -0.0003}, {10.0662, -0.0071}, {30.2205, -0.0555}},
-        {{1, 0.0000}, {2.9619, -0.0006}, {10.0662, -0.0144}, {30.2259, -0.1094}},
-        {{1, 0.0000}, {2.9618, -0.0013}, {10.0661, -0.0298}, {30.2223, -0.2307}},
-        {{1, 0.0000}, {2.9621, -0.0034}, {10.0667, -0.0753}, {30.2076, -0.5766}},
-        {{1, 0.0000}, {2.9622, -0.0071}, {10.0645, -0.1510}, {30.1675, -1.1536}},
-        {{1, 0.0000}, {2.9618, -0.0143}, {10.0511, -0.2927}, {29.9933, -2.2955}},
-        {{1, 0.0000}, {2.9604, -0.0364}, {10.0015, -0.7492}, {29.1331, -5.5402}},
-        {{1, 0.0000}, {2.9589, -0.0717}, {9.8223, -1.4645}, {26.3411, -10.0105}}};
+        {{1, 0}, {2.9615, 0.0000}, {10.0525, 0.0000}, {30.0440, 0.0000}},
+        {{1, 0}, {2.9615, 0.0000}, {10.0528, 0.0000}, {30.0468, 0.0000}},
+        {{1, 0}, {2.9615, 0.0000}, {10.0530, 0.0000}, {30.0483, -0.0031}},
+        {{1, 0}, {2.9615, 0.0000}, {10.0531, -0.0014}, {30.0507, -0.0102}},
+        {{1, 0}, {2.9615, 0.0000}, {10.0531, -0.0028}, {30.0506, -0.0218}},
+        {{1, 0}, {2.9614, -0.0003}, {10.0531, -0.0071}, {30.0509, -0.0559}},
+        {{1, 0}, {2.9614, -0.0006}, {10.0527, -0.0147}, {30.0495, -0.1091}},
+        {{1, 0}, {2.9613, -0.0013}, {10.0510, -0.0296}, {30.0352, -0.2299}},
+        {{1, 0}, {2.9616, -0.0037}, {10.0534, -0.0749}, {30.0460, -0.5715}},
+        {{1, 0}, {2.9612, -0.0073}, {10.0503, -0.1503}, {30.0093, -1.1414}},
+        {{1, 0}, {2.9617, -0.0150}, {10.0421, -0.3088}, {29.9114, -2.3046}},
+        {{1, 0}, {2.9601, -0.0365}, {9.9879, -0.7480}, {28.9636, -5.5198}},
+        {{1, 0}, {2.9583, -0.0752}, {9.8129, -1.4753}, {26.2007, -9.9337}}};
 
     float tia_res_table[4] = {20, 100, 1000, 20000};
     float tia_cap_table[4] = {0e-12, 0e-12, 0e-12, 0e-12};
@@ -104,9 +104,11 @@ void main_loop()
     lcd.printf("Piyo");
 
     delay_ms(10);
-    HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET_LINEARITY, ADC_DIFFERENTIAL_ENDED);
-    HAL_ADCEx_Calibration_Start(&hadc2, ADC_CALIB_OFFSET_LINEARITY, ADC_DIFFERENTIAL_ENDED);
-    HAL_ADCEx_Calibration_Start(&hadc3, ADC_CALIB_OFFSET_LINEARITY, ADC_SINGLE_ENDED);
+    HAL_ADCEx_LinearCalibration_FactorLoad(&hadc1);
+    HAL_ADCEx_LinearCalibration_FactorLoad(&hadc2);
+    HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET, ADC_DIFFERENTIAL_ENDED);
+    HAL_ADCEx_Calibration_Start(&hadc2, ADC_CALIB_OFFSET, ADC_DIFFERENTIAL_ENDED);
+    HAL_ADCEx_Calibration_Start(&hadc3, ADC_CALIB_OFFSET, ADC_SINGLE_ENDED);
 
     HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_dma_buffer[LCR_ID_I], adc_dma_buf_len);
     HAL_ADC_Start_DMA(&hadc2, (uint32_t*)adc_dma_buffer[LCR_ID_V], adc_dma_buf_len);
@@ -149,14 +151,6 @@ void main_loop()
 
         if (dac_changed) {
             freq = settings.freq_list[freq_id];
-
-            if (freq_id <= 2) {  // <1kHz
-                TIM7->ARR = 600 - 1;
-                dac_sampling_freq = 400e+3;
-            } else {
-                TIM7->ARR = 48 - 1;
-                dac_sampling_freq = 5e+6;
-            }
 
             v_rms = set_dac_output(freq, v_rms);
             if (freq < 10 * 1000) {
@@ -223,7 +217,7 @@ void main_loop()
         Complex current;
 
         int measurement_cycle = 1;
-        Complex impedance = Complex(0.0f);
+        Complex impedance_list[measurement_cycle];
 
         for (int i = 0; i < measurement_cycle; ++i) {
             measure_voltage_current();
@@ -237,8 +231,10 @@ void main_loop()
             voltage = voltage / settings.pga_gain_table[freq_id][pga_v_gain_id];
             current = current / settings.pga_gain_table[freq_id][pga_i_gain_id];
 
-            impedance = impedance + (voltage / current) / measurement_cycle;
+            impedance_list[i] = voltage / current;
         }
+
+        Complex impedance = mid(impedance_list, measurement_cycle);
 
         printf("V: %.4f, I: %4f, Z: %4f, TIA: %d, PGA: %d, %d\n", voltage.abs, current.abs, impedance.abs, tia_gain_id, pga_v_gain_id, pga_i_gain_id);
 
@@ -422,6 +418,15 @@ float set_dac_output(int freq, float v_rms)
     }
 
     set_dac_bw(freq);
+
+    if (freq < 1000) {
+        TIM7->ARR = 600 - 1;
+        dac_sampling_freq = 400e+3;
+    } else {
+        TIM7->ARR = 48 - 1;
+        dac_sampling_freq = 5e+6;
+    }
+
     return v_rms / k;
 }
 
@@ -453,7 +458,7 @@ void coupling_set_dc(bool cur, bool pot)
 void adc_calibration()
 {
     tia_set_gain(0);
-    int freq_id = 10;
+    int freq_id = 12;
     int freq = settings.freq_list[freq_id];
     set_dac_output(freq, 1.0f);
     tia_set_gain(0);
@@ -482,15 +487,15 @@ void pga_calibration()
         int pga_i_gain_id = 0;
         printf("{");
         while (1) {
-            float v_rms = 0.5f / settings.pga_gain_table[freq_id][pga_v_gain_id].abs;
+            float v_rms = 1.2f / settings.pga_gain_table[freq_id][pga_v_gain_id].abs;
             set_dac_output(freq, v_rms);
             pga_set_gain(LCR_ID_V, pga_v_gain_id);
             pga_set_gain(LCR_ID_I, pga_i_gain_id);
             set_iv_mux_sw(true, false);
-            delay_ms(10);
+            delay_ms(100);
 
-            int measurement_cycle = 16;
-            Complex ratio = Complex(0.0f);
+            int measurement_cycle = 64;
+            Complex ratio_list[measurement_cycle];
 
             for (int i = 0; i < measurement_cycle; ++i) {
                 measure_voltage_current();
@@ -501,10 +506,12 @@ void pga_calibration()
 
                 Complex voltage = calc_fourier(LCR_ID_V, freq);
                 Complex current = calc_fourier(LCR_ID_I, freq);
-                ratio = ratio + (voltage / current) / measurement_cycle;
+                ratio_list[i] = (voltage / current);
             }
 
-            if (abs(ratio.im / ratio.abs) < 0.00001f) {
+            Complex ratio = mid(ratio_list, measurement_cycle);
+
+            if (abs(ratio.im / ratio.abs) < 0.0001f) {
                 ratio = ratio.abs;
             }
 
@@ -519,8 +526,7 @@ void pga_calibration()
         }
         printf("},\n");
     }
-
-    delay_ms(1000000);
+    printf("PGA Calibration Done!\n");
 }
 
 void pga_set_gain(LCR_ID_IV id, int gain_id)
