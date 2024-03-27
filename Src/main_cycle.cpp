@@ -25,14 +25,14 @@ enum LCR_ID_IV {
 
 // DAC
 constexpr uint32_t dac_dma_buf_len = 10000;
-__attribute__((section(".RAM_D1_DMA"))) uint16_t dac_dma_buffer[dac_dma_buf_len];
+__attribute__((section(".RAM_DMA"))) uint16_t dac_dma_buffer[dac_dma_buf_len];
 float dac_sampling_freq = 5.0e+6;
 
 // ADC
 constexpr uint32_t adc_dma_buf_len = 256;
-__attribute__((section(".RAM_D1_DMA"))) uint16_t adc_dma_buffer[2][adc_dma_buf_len];
+__attribute__((section(".RAM_DMA"))) uint16_t adc_dma_buffer[2][adc_dma_buf_len];
 constexpr uint32_t adc_data_buf_len = 24000;
-__attribute__((section(".RAM_D1_DMA"))) uint16_t adc_data_buffer[2][adc_data_buf_len];
+__attribute__((section(".RAM_DATA"))) uint16_t adc_data_buffer[2][adc_data_buf_len];
 float adc_sampling_freq = 120e+6 / 125;
 
 constexpr int freq_list_length = 13;
@@ -46,7 +46,7 @@ struct Settings {
     float short_resistance = 0.0f;
     float short_inductance = 0.0e-6f;
     float open_resistance = 1.0e+24f;
-    float open_capacitance = 0.36e-12f;
+    float open_capacitance = 0.375e-12f;
 
     Complex pga_gain_table[freq_list_length][4] = {
         // 1, 2.9608, 10.067, 30.2
@@ -72,6 +72,7 @@ SMR12864 lcd;
 
 float set_dac_output(int freq, float v_rms);
 void measure_voltage_current();
+void measure_short_voltage_current();
 bool adc_is_clipping(LCR_ID_IV id, bool strict);
 void pga_calibration();
 void adc_calibration();
@@ -150,10 +151,10 @@ void main_loop()
             freq = settings.freq_list[freq_id];
 
             if (freq_id <= 2) {  // <1kHz
-                TIM7->ARR = 300 - 1;
+                TIM7->ARR = 600 - 1;
                 dac_sampling_freq = 400e+3;
             } else {
-                TIM7->ARR = 24 - 1;
+                TIM7->ARR = 48 - 1;
                 dac_sampling_freq = 5e+6;
             }
 
@@ -178,8 +179,14 @@ void main_loop()
 
         while (1) {
             tia_set_gain(tia_gain_id);
-            delay_ms(freq > 5000 ? 10 : 50);
-            measure_voltage_current();
+            if (freq > 2000) {
+                delay_ms(10);
+                measure_short_voltage_current();
+            } else {
+                delay_ms(50);
+                measure_voltage_current();
+            }
+
             if (adc_is_clipping(LCR_ID_I, freq > 200000) && tia_gain_id > 0) {
                 --tia_gain_id;
             } else {
@@ -192,8 +199,15 @@ void main_loop()
         while (1) {
             pga_set_gain(LCR_ID_I, pga_i_gain_id);
             pga_set_gain(LCR_ID_V, pga_v_gain_id);
-            delay_ms(freq > 5000 ? 1 : 10);
-            measure_voltage_current();
+
+            if (freq > 2000) {
+                delay_ms(1);
+                measure_short_voltage_current();
+            } else {
+                delay_ms(10);
+                measure_voltage_current();
+            }
+
             if (adc_is_clipping(LCR_ID_V, false) && pga_v_gain_id > 0) {
                 pga_v_gain_id--;
                 continue;
@@ -216,7 +230,7 @@ void main_loop()
             voltage = calc_fourier(LCR_ID_V, freq);
             current = calc_fourier(LCR_ID_I, freq);
 
-            Complex tia_conductance = Complex{1 / settings.tia_res_table[tia_gain_id], 2 * (float)PI * freq * settings.tia_cap_table[tia_gain_id]};
+            Complex tia_conductance = Complex{1 / settings.tia_res_table[tia_gain_id], -2 * (float)PI * freq * settings.tia_cap_table[tia_gain_id]};
 
             current = current * tia_conductance;
 
@@ -263,12 +277,14 @@ void main_loop()
             lcd.printf("%6.4fMOhm", impedance.abs / 1e+6);
         } else if (impedance.abs > 1e+4) {
             lcd.printf("%6.2fkOhm", impedance.abs / 1e+3);
-        } else if (impedance.abs < 1e+1) {
+        } else if (impedance.abs > 1e+2) {
+            lcd.printf("%6.1f Ohm", impedance.abs);
+        } else if (impedance.abs > 1e+1) {
             lcd.printf("%6.3f Ohm", impedance.abs);
-        } else if (impedance.abs < 1e+2) {
+        } else if (impedance.abs > 1) {
             lcd.printf("%6.2f Ohm", impedance.abs);
         } else {
-            lcd.printf("%6.0f Ohm", impedance.abs);
+            lcd.printf("%6.1fmOhm", impedance.abs * 1000);
         }
 
         lcd.locate(3, 6);
@@ -290,8 +306,10 @@ void main_loop()
                 lcd.printf("%6.2fpF ", capacitance * 1.0e+12);
             } else if (capacitance > 1.0e-11) {
                 lcd.printf("%6.2fpF ", capacitance * 1.0e+12);
-            } else {
+            } else if (capacitance > 1.0e-12) {
                 lcd.printf("%6.4fpF ", capacitance * 1.0e+12);
+            } else {
+                lcd.printf("%6.1ffF ", capacitance * 1.0e+15);
             }
         }
 
@@ -318,16 +336,17 @@ void main_loop()
             lcd.printf("%5.3fMOhm", resistance / 1e+6);
         } else if (resistance > 1e+4) {
             lcd.printf("%5.1fkOhm", resistance / 1e+3);
-        } else if (resistance < 1e+1) {
-            lcd.printf("%5.3f Ohm", resistance);
-        } else if (resistance < 1e+2) {
-            lcd.printf("%5.2f Ohm", resistance);
-        } else {
+        } else if (resistance > 1e+3) {
             lcd.printf("%5.0f Ohm", resistance);
+        } else if (resistance > 1e+1) {
+            lcd.printf("%5.1f Ohm", resistance);
+        } else if (resistance > 1) {
+            lcd.printf("%5.3f Ohm", resistance);
+        } else {
+            lcd.printf("%5.1fmOhm", resistance * 1000);
         }
     }
 }
-
 
 void measure_voltage_current()
 {
@@ -343,6 +362,30 @@ void measure_voltage_current()
         adc_data_buffer[LCR_ID_I][write_ptr] = adc_dma_buffer[LCR_ID_I][dma_next_read];
         adc_data_buffer[LCR_ID_V][write_ptr] = adc_dma_buffer[LCR_ID_V][dma_next_read];
         dma_next_read = (dma_next_read + 1) % adc_dma_buf_len;
+        ++write_ptr;
+    }
+}
+
+void measure_short_voltage_current()
+{
+    ScopedLock lock;
+    uint16_t dma_current_ptr = dma_get_last_index(&hadc1, adc_dma_buf_len);
+    uint16_t dma_next_read = dma_current_ptr;
+    uint32_t write_ptr = 0;
+    while (write_ptr < adc_data_buf_len / 10) {
+        while (dma_next_read == dma_current_ptr) {
+            dma_current_ptr = dma_get_last_index(&hadc1, adc_dma_buf_len);
+        }
+
+        adc_data_buffer[LCR_ID_I][write_ptr] = adc_dma_buffer[LCR_ID_I][dma_next_read];
+        adc_data_buffer[LCR_ID_V][write_ptr] = adc_dma_buffer[LCR_ID_V][dma_next_read];
+        dma_next_read = (dma_next_read + 1) % adc_dma_buf_len;
+        ++write_ptr;
+    }
+
+    while (write_ptr < adc_data_buf_len) {
+        adc_data_buffer[LCR_ID_I][write_ptr] = UINT16_MAX / 2;
+        adc_data_buffer[LCR_ID_V][write_ptr] = UINT16_MAX / 2;
         ++write_ptr;
     }
 }
