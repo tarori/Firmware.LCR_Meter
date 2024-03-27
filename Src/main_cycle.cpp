@@ -31,14 +31,14 @@ float dac_sampling_freq = 5.0e+6;
 // ADC
 constexpr uint32_t adc_dma_buf_len = 256;
 __attribute__((section(".RAM_D1_DMA"))) uint16_t adc_dma_buffer[2][adc_dma_buf_len];
-constexpr uint32_t adc_data_buf_len = 12000;
+constexpr uint32_t adc_data_buf_len = 24000;
 __attribute__((section(".RAM_D1_DMA"))) uint16_t adc_data_buffer[2][adc_data_buf_len];
-float adc_sampling_freq = 120e+6 / 100;
+float adc_sampling_freq = 120e+6 / 125;
 
-constexpr int freq_list_length = 10;
+constexpr int freq_list_length = 13;
 
 struct Settings {
-    int freq_list[freq_list_length] = {1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, 1000000};
+    int freq_list[freq_list_length] = {40, 120, 400, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, 1000000};
 
     float adc_ratio = -1.0f;
     float adc_delay_err = 1.1e-9f;
@@ -50,16 +50,19 @@ struct Settings {
 
     Complex pga_gain_table[freq_list_length][4] = {
         // 1, 2.9608, 10.067, 30.2
-        {{1, 0}, {2.962, 0}, {10.066, 0}, {30.22, 0}},
-        {{1, 0}, {2.962, 0}, {10.066, 0}, {30.22, 0}},
-        {{1, 0}, {2.962, 0}, {10.066, 0}, {30.22, -0.041}},
-        {{1, 0}, {2.962, 0}, {10.066, -0.012}, {30.22, -0.087}},
-        {{1, 0}, {2.962, 0}, {10.066, -0.031}, {30.22, -0.220}},
-        {{1, 0}, {2.962, 0}, {10.066, -0.074}, {30.18, -0.612}},
-        {{1, 0}, {2.962, 0}, {10.065, -0.152}, {30.18, -1.210}},
-        {{1, 0}, {2.962, -0.014}, {10.038, -0.311}, {30.05, -2.171}},
-        {{1, 0}, {2.961, -5.51}, {10.002, -0.750}, {29.06, -5.506}},
-        {{1, 0}, {2.959, -0.061}, {9.831, -1.289}, {27.187, -8.981}}};
+        {{1, 0.0000}, {2.9619, 0.0000}, {10.0660, -0.0}, {30.2187, -0.0}},
+        {{1, 0.0000}, {2.9619, 0.0000}, {10.0660, -0.0}, {30.2187, -0.0}},
+        {{1, 0.0000}, {2.9619, 0.0000}, {10.0660, -0.0}, {30.2187, -0.0}},
+        {{1, 0.0000}, {2.9619, 0.0000}, {10.0660, -0.0011}, {30.2187, -0.0085}},
+        {{1, 0.0000}, {2.9619, -0.0001}, {10.0662, -0.0026}, {30.2194, -0.0209}},
+        {{1, 0.0000}, {2.9619, -0.0003}, {10.0662, -0.0071}, {30.2205, -0.0555}},
+        {{1, 0.0000}, {2.9619, -0.0006}, {10.0662, -0.0144}, {30.2259, -0.1094}},
+        {{1, 0.0000}, {2.9618, -0.0013}, {10.0661, -0.0298}, {30.2223, -0.2307}},
+        {{1, 0.0000}, {2.9621, -0.0034}, {10.0667, -0.0753}, {30.2076, -0.5766}},
+        {{1, 0.0000}, {2.9622, -0.0071}, {10.0645, -0.1510}, {30.1675, -1.1536}},
+        {{1, 0.0000}, {2.9618, -0.0143}, {10.0511, -0.2927}, {29.9933, -2.2955}},
+        {{1, 0.0000}, {2.9604, -0.0364}, {10.0015, -0.7492}, {29.1331, -5.5402}},
+        {{1, 0.0000}, {2.9589, -0.0717}, {9.8223, -1.4645}, {26.3411, -10.0105}}};
 
     float tia_res_table[4] = {20, 100, 1000, 20000};
     float tia_cap_table[4] = {0e-12, 0e-12, 0e-12, 0e-12};
@@ -75,7 +78,7 @@ void adc_calibration();
 void pga_set_gain(LCR_ID_IV id, int gain_id);
 void tia_set_gain(int gain_id);
 void coupling_set_dc(bool cur, bool pot);
-struct Complex calc_fourier(LCR_ID_IV id, uint32_t freq);
+struct Complex calc_fourier(LCR_ID_IV id, int freq);
 void set_dac_bw(int freq);
 
 void main_loop()
@@ -121,28 +124,45 @@ void main_loop()
     TIM3->CNT = INT16_MAX;
     TIM4->CNT = INT16_MAX;
 
-    uint32_t freq = 0;
-    uint32_t freq_id = 6;  // 100kHz Default
+    int freq = 0;
+    int freq_id = 9;  // 100kHz Default
+    bool dac_changed = true;
     TIM4->CNT -= 4 * ((TIM4->CNT / 4 - freq_id) % freq_list_length);
-    float v_rms = 1.0f;
+    float v_rms = 0.5f;
     bool dc_couple = true;
 
     init_done = true;
     while (1) {
-        freq_id = (TIM4->CNT / 4) % freq_list_length;
-        freq = settings.freq_list[freq_id];
+        int freq_id_new = (TIM4->CNT / 4) % freq_list_length;
+        if (freq_id != freq_id_new) {
+            dac_changed = true;
+            freq_id = freq_id_new;
+        }
 
         if (botton2_pushed) {
             botton2_pushed = false;
             dc_couple = !dc_couple;
             coupling_set_dc(dc_couple, dc_couple);
+            dac_changed = true;
         }
 
-        v_rms = set_dac_output(freq, v_rms);
-        if (freq < 10 * 1000) {
-            delay_ms(100);
+        if (dac_changed) {
+            freq = settings.freq_list[freq_id];
+
+            if (freq_id <= 2) {  // <1kHz
+                TIM7->ARR = 300 - 1;
+                dac_sampling_freq = 400e+3;
+            } else {
+                TIM7->ARR = 24 - 1;
+                dac_sampling_freq = 5e+6;
+            }
+
+            v_rms = set_dac_output(freq, v_rms);
+            if (freq < 10 * 1000) {
+                // delay_ms(100);
+            }
+            // delay_ms(100);
         }
-        delay_ms(100);
 
         while (0) {
             // adc_calibration();
@@ -158,7 +178,7 @@ void main_loop()
 
         while (1) {
             tia_set_gain(tia_gain_id);
-            delay_ms(10);
+            delay_ms(freq > 5000 ? 10 : 50);
             measure_voltage_current();
             if (adc_is_clipping(LCR_ID_I, freq > 200000) && tia_gain_id > 0) {
                 --tia_gain_id;
@@ -172,7 +192,7 @@ void main_loop()
         while (1) {
             pga_set_gain(LCR_ID_I, pga_i_gain_id);
             pga_set_gain(LCR_ID_V, pga_v_gain_id);
-            delay_ms(1);
+            delay_ms(freq > 5000 ? 1 : 10);
             measure_voltage_current();
             if (adc_is_clipping(LCR_ID_V, false) && pga_v_gain_id > 0) {
                 pga_v_gain_id--;
@@ -231,7 +251,7 @@ void main_loop()
         }
 
         lcd.cls();
-        lcd.printf("%5dkHz %3.1fVrms %s", freq / 1000, v_rms, dc_couple ? "DC" : "AC");
+        lcd.printf("%5d%s %3.1fVrms %s", freq < 1000 ? freq : freq / 1000, freq < 1000 ? "Hz" : "kHz", v_rms, dc_couple ? "DC" : "AC");
 
         lcd.locate(1, 6);
         lcd.printf("%s Z ", sp_mode ? "Ser" : "Par");
@@ -268,8 +288,10 @@ void main_loop()
                 lcd.printf("%6.4fuF ", capacitance * 1.0e+6);
             } else if (capacitance > 1.0e-9) {
                 lcd.printf("%6.2fpF ", capacitance * 1.0e+12);
+            } else if (capacitance > 1.0e-11) {
+                lcd.printf("%6.2fpF ", capacitance * 1.0e+12);
             } else {
-                lcd.printf("%6.3fpF ", capacitance * 1.0e+12);
+                lcd.printf("%6.4fpF ", capacitance * 1.0e+12);
             }
         }
 
@@ -326,7 +348,7 @@ void measure_voltage_current()
 }
 
 struct Complex
-calc_fourier(LCR_ID_IV id, uint32_t freq)
+calc_fourier(LCR_ID_IV id, int freq)
 {
     double real_sum = 0;
     float ratio = (id == LCR_ID_V) ? 1 : settings.adc_ratio;
@@ -388,7 +410,7 @@ void coupling_set_dc(bool cur, bool pot)
 void adc_calibration()
 {
     tia_set_gain(0);
-    int freq_id = 9;
+    int freq_id = 10;
     int freq = settings.freq_list[freq_id];
     set_dac_output(freq, 1.0f);
     tia_set_gain(0);
@@ -437,6 +459,10 @@ void pga_calibration()
                 Complex voltage = calc_fourier(LCR_ID_V, freq);
                 Complex current = calc_fourier(LCR_ID_I, freq);
                 ratio = ratio + (voltage / current) / measurement_cycle;
+            }
+
+            if (abs(ratio.im / ratio.abs) < 0.00001f) {
+                ratio = ratio.abs;
             }
 
             // printf("%dkHz, %d/%d, Ratio: %.5f + %.5fi = |%.6f|\n", freq / 1000, pga_v_gain_id, pga_i_gain_id, ratio.real, ratio.im, ratio.abs);

@@ -69,9 +69,11 @@ void PeriphCommonClock_Config(void);
  */
 int main(void)
 {
+
     /* USER CODE BEGIN 1 */
 
     /* USER CODE END 1 */
+
     /* Enable the CPU Cache */
 
     /* Enable I-Cache---------------------------------------------------------*/
@@ -192,8 +194,8 @@ void PeriphCommonClock_Config(void)
      */
     PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_ADC;
     PeriphClkInitStruct.PLL2.PLL2M = 1;
-    PeriphClkInitStruct.PLL2.PLL2N = 20;
-    PeriphClkInitStruct.PLL2.PLL2P = 6;
+    PeriphClkInitStruct.PLL2.PLL2N = 16;
+    PeriphClkInitStruct.PLL2.PLL2P = 8;
     PeriphClkInitStruct.PLL2.PLL2Q = 2;
     PeriphClkInitStruct.PLL2.PLL2R = 2;
     PeriphClkInitStruct.PLL2.PLL2RGE = RCC_PLL2VCIRANGE_3;

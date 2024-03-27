@@ -33,7 +33,7 @@ set(COMMON_COMPILER_FLAGS "-mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=ha
 set(CMAKE_C_FLAGS "${COMMON_COMPILER_FLAGS} -std=gnu11")
 set(CMAKE_C_FLAGS_DEBUG "-g")
 set(CMAKE_FLAGS_RELEASE "")
-set(CMAKE_CXX_FLAGS "${COMMON_COMPILER_FLAGS} -std=gnu++17 -Wno-missing-field-initializers")
+set(CMAKE_CXX_FLAGS "${COMMON_COMPILER_FLAGS} -std=gnu++17")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "")
 set(CMAKE_ASM_FLAGS "${COMMON_COMPILER_FLAGS} -x assembler-with-cpp")
@@ -56,7 +56,7 @@ include_directories("Inc" "${CubeMX_dir}/Core/Inc" "${CubeMX_dir}/Drivers/CMSIS/
 file(GLOB PERIPH_LIB_SOURCE "${CubeMX_dir}/Core/Src/*.c" "${CubeMX_dir}/Drivers/STM32H7xx_HAL_Driver/Src/*.c" "${CubeMX_dir}/*.s")
 list(REMOVE_ITEM PERIPH_LIB_SOURCE "${CubeMX_dir}/Core/Src/main.c")
 list(REMOVE_ITEM PERIPH_LIB_SOURCE "${CubeMX_dir}/Core/Src/stm32h7xx_it.c")
-file(GLOB CMSIS_DSP_SOURCE "CMSIS_DSP/Source/arm_cos_f32.c" "CMSIS_DSP/Source/arm_sin_f32.c" "CMSIS_DSP/Source/arm_common_tables.c")
+file(GLOB CMSIS_DSP_SOURCE "CMSIS_DSP/Source/arm_cos_sin_table_f32.c")
 
 set(CMAKE_EXE_LINKER_FLAGS "-mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=hard -specs=nano.specs -T ${CMAKE_SOURCE_DIR}/Src/STM32H730VBTx_FLASH.ld -L. -lc -lm -u _printf_float -Wl,--no-warn-rwx-segment -Wl,--gc-sections -Wl,-Map=${CMAKE_PROJECT_NAME}.map,--cref -Wl,--print-memory-usage")
 
