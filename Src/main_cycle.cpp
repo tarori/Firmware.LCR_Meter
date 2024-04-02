@@ -15,8 +15,8 @@
 #include "complex.hpp"
 
 volatile bool init_done = false;
-volatile bool botton1_pushed = false;
-volatile bool botton2_pushed = false;
+volatile bool button1_pushed = false;
+volatile bool button2_pushed = false;
 
 enum LCR_ID_IV {
     LCR_ID_I = 0,
@@ -48,24 +48,43 @@ struct Settings {
     float open_resistance = 1.0e+24f;
     float open_capacitance = 0.375e-12f;
 
-    Complex pga_gain_table[freq_list_length][4] = {
+    Complex pga_v_gain_table[freq_list_length][4] = {
         // 1, 2.9608, 10.067, 30.2
-        {{1, 0}, {2.9615, 0.0000}, {10.0525, 0.0000}, {30.0440, 0.0000}},
-        {{1, 0}, {2.9615, 0.0000}, {10.0528, 0.0000}, {30.0468, 0.0000}},
-        {{1, 0}, {2.9615, 0.0000}, {10.0530, 0.0000}, {30.0483, -0.0031}},
-        {{1, 0}, {2.9615, 0.0000}, {10.0531, -0.0014}, {30.0507, -0.0102}},
-        {{1, 0}, {2.9615, 0.0000}, {10.0531, -0.0028}, {30.0506, -0.0218}},
-        {{1, 0}, {2.9614, -0.0003}, {10.0531, -0.0071}, {30.0509, -0.0559}},
-        {{1, 0}, {2.9614, -0.0006}, {10.0527, -0.0147}, {30.0495, -0.1091}},
-        {{1, 0}, {2.9613, -0.0013}, {10.0510, -0.0296}, {30.0352, -0.2299}},
-        {{1, 0}, {2.9616, -0.0037}, {10.0534, -0.0749}, {30.0460, -0.5715}},
-        {{1, 0}, {2.9612, -0.0073}, {10.0503, -0.1503}, {30.0093, -1.1414}},
-        {{1, 0}, {2.9617, -0.0150}, {10.0421, -0.3088}, {29.9114, -2.3046}},
-        {{1, 0}, {2.9601, -0.0365}, {9.9879, -0.7480}, {28.9636, -5.5198}},
-        {{1, 0}, {2.9583, -0.0752}, {9.8129, -1.4753}, {26.2007, -9.9337}}};
+        {{1.0000, 0.0000}, {2.9618, 0.0000}, {10.0642, 0.0000}, {30.1615, 0.0000}},
+        {{1.0000, 0.0000}, {2.9618, 0.0000}, {10.0642, 0.0000}, {30.1615, 0.0000}},
+        {{1.0000, 0.0000}, {2.9618, 0.0000}, {10.0645, 0.0000}, {30.1622, 0.0000}},
+        {{1.0000, 0.0000}, {2.9617, 0.0000}, {10.0642, 0.0000}, {30.1613, -0.0072}},
+        {{1.0000, 0.0000}, {2.9618, 0.0000}, {10.0646, -0.0022}, {30.1659, -0.0190}},
+        {{1.0000, 0.0000}, {2.9617, 0.0000}, {10.0650, -0.0055}, {30.1655, -0.0497}},
+        {{1.0000, 0.0000}, {2.9617, 0.0000}, {10.0648, -0.0111}, {30.1651, -0.0996}},
+        {{1.0000, 0.0000}, {2.9618, -0.0003}, {10.0665, -0.0227}, {30.1602, -0.2033}},
+        {{1.0000, 0.0000}, {2.9619, -0.0010}, {10.0648, -0.0584}, {30.1528, -0.5046}},
+        {{1.0000, 0.0000}, {2.9618, -0.0022}, {10.0632, -0.1176}, {30.1239, -1.0050}},
+        {{1.0000, 0.0000}, {2.9615, -0.0043}, {10.0576, -0.2330}, {30.0141, -1.9853}},
+        {{1.0000, 0.0000}, {2.9622, -0.0111}, {10.0286, -0.5833}, {29.3263, -4.9192}},
+        {{1.0000, 0.0000}, {2.9636, -0.0237}, {9.9169, -1.1556}, {27.0860, -9.0710}}};
+
+    Complex pga_i_gain_table[freq_list_length][4] = {
+        // 1, 2.9608, 10.067, 30.2
+        {{1.0000, 0.0000}, {2.9603, 0.0000}, {10.0631, 0.0000}, {30.1574, 0.0000}},
+        {{1.0000, 0.0000}, {2.9602, 0.0000}, {10.0630, 0.0000}, {30.1591, 0.0000}},
+        {{1.0000, 0.0000}, {2.9602, 0.0000}, {10.0630, 0.0000}, {30.1581, 0.0000}},
+        {{1.0000, 0.0000}, {2.9602, 0.0000}, {10.0631, -0.0011}, {30.1605, -0.0087}},
+        {{1.0000, 0.0000}, {2.9602, 0.0000}, {10.0631, -0.0022}, {30.1607, -0.0191}},
+        {{1.0000, 0.0000}, {2.9603, 0.0000}, {10.0633, -0.0060}, {30.1610, -0.0492}},
+        {{1.0000, 0.0000}, {2.9603, -0.0003}, {10.0631, -0.0119}, {30.1612, -0.0998}},
+        {{1.0000, 0.0000}, {2.9601, -0.0005}, {10.0631, -0.0235}, {30.1555, -0.2004}},
+        {{1.0000, 0.0000}, {2.9601, -0.0015}, {10.0624, -0.0589}, {30.1540, -0.4994}},
+        {{1.0000, 0.0000}, {2.9600, -0.0026}, {10.0611, -0.1171}, {30.1266, -1.0007}},
+        {{1.0000, 0.0000}, {2.9599, -0.0053}, {10.0566, -0.2323}, {30.0283, -1.9973}},
+        {{1.0000, 0.0000}, {2.9606, -0.0125}, {10.0267, -0.5817}, {29.3496, -4.8486}},
+        {{1.0000, 0.0000}, {2.9640, -0.0272}, {9.9264, -1.1541}, {27.1795, -9.0031}}};
 
     float tia_res_table[4] = {20, 100, 1000, 20000};
-    float tia_cap_table[4] = {0e-12, 0e-12, 0e-12, 0e-12};
+    float tia_cap_table[4] = {0e-12, 0e-12, 0e-12, 2e-12};
+
+    uint32_t adc1_linearity_cal[ADC_LINEAR_CALIB_REG_COUNT] = {0x20180602, 0x20180200, 0x2007ea04, 0x2017f5ff, 0x1fe805fe, 0x0209};
+    uint32_t adc2_linearity_cal[ADC_LINEAR_CALIB_REG_COUNT] = {0x1fe7f9fe, 0x201811ff, 0x20180603, 0x20180a00, 0x2007fa00, 0x0200};
 } settings;
 
 SMR12864 lcd;
@@ -81,6 +100,7 @@ void tia_set_gain(int gain_id);
 void coupling_set_dc(bool cur, bool pot);
 struct Complex calc_fourier(LCR_ID_IV id, int freq);
 void set_dac_bw(int freq);
+void adc_calibration_dump();
 
 void main_loop()
 {
@@ -91,6 +111,8 @@ void main_loop()
     tia_set_gain(0);
     coupling_set_dc(true, true);
     delay_ms(100);
+
+    // adc_calibration_dump();
 
     lcd.reset();
     delay_ms(200);
@@ -104,16 +126,25 @@ void main_loop()
     lcd.printf("Piyo");
 
     delay_ms(10);
-    HAL_ADCEx_LinearCalibration_FactorLoad(&hadc1);
-    HAL_ADCEx_LinearCalibration_FactorLoad(&hadc2);
-    HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET, ADC_DIFFERENTIAL_ENDED);
-    HAL_ADCEx_Calibration_Start(&hadc2, ADC_CALIB_OFFSET, ADC_DIFFERENTIAL_ENDED);
-    HAL_ADCEx_Calibration_Start(&hadc3, ADC_CALIB_OFFSET, ADC_SINGLE_ENDED);
+    int hal_state = HAL_OK;
+    hal_state |= HAL_ADCEx_LinearCalibration_SetValue(&hadc1, settings.adc1_linearity_cal);
+    hal_state |= HAL_ADCEx_LinearCalibration_SetValue(&hadc2, settings.adc2_linearity_cal);
+    hal_state |= HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET, ADC_DIFFERENTIAL_ENDED);
+    hal_state |= HAL_ADCEx_Calibration_Start(&hadc2, ADC_CALIB_OFFSET, ADC_DIFFERENTIAL_ENDED);
+    hal_state |= HAL_ADCEx_Calibration_Start(&hadc3, ADC_CALIB_OFFSET, ADC_SINGLE_ENDED);
 
-    HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_dma_buffer[LCR_ID_I], adc_dma_buf_len);
-    HAL_ADC_Start_DMA(&hadc2, (uint32_t*)adc_dma_buffer[LCR_ID_V], adc_dma_buf_len);
+    hal_state |= HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_dma_buffer[LCR_ID_I], adc_dma_buf_len);
+    hal_state |= HAL_ADC_Start_DMA(&hadc2, (uint32_t*)adc_dma_buffer[LCR_ID_V], adc_dma_buf_len);
     MODIFY_REG(((DMA_Stream_TypeDef*)hadc1.DMA_Handle->Instance)->CR, DMA_IT_TC | DMA_IT_HT, 0);
     MODIFY_REG(((DMA_Stream_TypeDef*)hadc2.DMA_Handle->Instance)->CR, DMA_IT_TC | DMA_IT_HT, 0);
+
+    if (hal_state != HAL_OK) {
+        printf("ADC initialize error\n");
+        lcd.cls();
+        lcd.printf("ADC initialize error");
+        while (1) {
+        }
+    }
 
     HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)dac_dma_buffer, dac_dma_buf_len, DAC_ALIGN_12B_R);
     MODIFY_REG(((DMA_Stream_TypeDef*)hdac1.DMA_Handle1->Instance)->CR, DMA_IT_TC | DMA_IT_HT, 0);
@@ -142,8 +173,8 @@ void main_loop()
             freq_id = freq_id_new;
         }
 
-        if (botton2_pushed) {
-            botton2_pushed = false;
+        if (button2_pushed) {
+            button2_pushed = false;
             dc_couple = !dc_couple;
             coupling_set_dc(dc_couple, dc_couple);
             dac_changed = true;
@@ -224,12 +255,12 @@ void main_loop()
             voltage = calc_fourier(LCR_ID_V, freq);
             current = calc_fourier(LCR_ID_I, freq);
 
-            Complex tia_conductance = Complex{1 / settings.tia_res_table[tia_gain_id], -2 * (float)PI * freq * settings.tia_cap_table[tia_gain_id]};
+            Complex tia_conductance = Complex{1 / settings.tia_res_table[tia_gain_id], 2 * (float)PI * freq * settings.tia_cap_table[tia_gain_id]};
 
             current = current * tia_conductance;
 
-            voltage = voltage / settings.pga_gain_table[freq_id][pga_v_gain_id];
-            current = current / settings.pga_gain_table[freq_id][pga_i_gain_id];
+            voltage = voltage / settings.pga_v_gain_table[freq_id][pga_v_gain_id];
+            current = current / settings.pga_i_gain_table[freq_id][pga_i_gain_id];
 
             impedance_list[i] = voltage / current;
         }
@@ -240,9 +271,10 @@ void main_loop()
 
         float omega = 2 * PI * freq;
 
+        float open_capacitance = settings.open_capacitance;
         impedance = impedance - Complex(settings.short_resistance, omega * settings.short_inductance);
         Complex conductance = Complex(1.0f) / impedance;
-        conductance = conductance - Complex(1.0f / settings.open_resistance, omega * settings.open_capacitance);
+        conductance = conductance - Complex(1.0f / settings.open_resistance, omega * open_capacitance);
         impedance = Complex(1.0f) / conductance;
 
         bool sp_mode = true;  // series
@@ -303,7 +335,7 @@ void main_loop()
             } else if (capacitance > 1.0e-11) {
                 lcd.printf("%6.2fpF ", capacitance * 1.0e+12);
             } else if (capacitance > 1.0e-12) {
-                lcd.printf("%6.4fpF ", capacitance * 1.0e+12);
+                lcd.printf("%6.3fpF ", capacitance * 1.0e+12);
             } else {
                 lcd.printf("%6.1ffF ", capacitance * 1.0e+15);
             }
@@ -340,6 +372,25 @@ void main_loop()
             lcd.printf("%5.3f Ohm", resistance);
         } else {
             lcd.printf("%5.1fmOhm", resistance * 1000);
+        }
+
+        if (1) {
+            lcd.locate(7, 32);
+            lcd.set_fontsize(8);
+            lcd.printf("Q = ");
+            float q = abs(impedance.im / impedance.real);
+            if (q > 1e+2) {
+                lcd.printf("%.1f", q);
+            } else if (q > 1e+1) {
+                lcd.printf("%.2f", q);
+            } else {
+                lcd.printf("%5.3f", q);
+            }
+        }
+
+        if (button1_pushed) {
+            settings.open_capacitance = settings.open_capacitance + capacitance;
+            button1_pushed = false;
         }
     }
 }
@@ -383,6 +434,24 @@ void measure_short_voltage_current()
         adc_data_buffer[LCR_ID_I][write_ptr] = UINT16_MAX / 2;
         adc_data_buffer[LCR_ID_V][write_ptr] = UINT16_MAX / 2;
         ++write_ptr;
+    }
+}
+
+void adc_calibration_dump()
+{
+    LL_ADC_SetCommonClock(__LL_ADC_COMMON_INSTANCE(hadc1.Instance), ADC_CLOCK_ASYNC_DIV4);
+    LL_ADC_SetCommonClock(__LL_ADC_COMMON_INSTANCE(hadc2.Instance), ADC_CLOCK_ASYNC_DIV4);
+    delay_ms(1000);
+    HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET_LINEARITY, ADC_DIFFERENTIAL_ENDED);
+    HAL_ADCEx_Calibration_Start(&hadc2, ADC_CALIB_OFFSET_LINEARITY, ADC_DIFFERENTIAL_ENDED);
+    uint32_t cal_data[ADC_LINEAR_CALIB_REG_COUNT];
+    HAL_ADCEx_LinearCalibration_GetValue(&hadc1, cal_data);
+    printf("ADC1: {0x%04lx, 0x%04lx, 0x%04lx, 0x%04lx, 0x%04lx, 0x%04lx}\n",
+        cal_data[0], cal_data[1], cal_data[2], cal_data[3], cal_data[4], cal_data[5]);
+    HAL_ADCEx_LinearCalibration_GetValue(&hadc2, cal_data);
+    printf("ADC2: {0x%04lx, 0x%04lx, 0x%04lx, 0x%04lx, 0x%04lx, 0x%04lx}\n",
+        cal_data[0], cal_data[1], cal_data[2], cal_data[3], cal_data[4], cal_data[5]);
+    while (1) {
     }
 }
 
@@ -487,14 +556,14 @@ void pga_calibration()
         int pga_i_gain_id = 0;
         printf("{");
         while (1) {
-            float v_rms = 1.2f / settings.pga_gain_table[freq_id][pga_v_gain_id].abs;
+            float v_rms = std::min(1.0f / settings.pga_v_gain_table[freq_id][pga_v_gain_id].abs, 1.0f / settings.pga_i_gain_table[freq_id][pga_i_gain_id].abs);
             set_dac_output(freq, v_rms);
             pga_set_gain(LCR_ID_V, pga_v_gain_id);
             pga_set_gain(LCR_ID_I, pga_i_gain_id);
             set_iv_mux_sw(true, false);
             delay_ms(100);
 
-            int measurement_cycle = 64;
+            int measurement_cycle = 16;
             Complex ratio_list[measurement_cycle];
 
             for (int i = 0; i < measurement_cycle; ++i) {
@@ -506,7 +575,8 @@ void pga_calibration()
 
                 Complex voltage = calc_fourier(LCR_ID_V, freq);
                 Complex current = calc_fourier(LCR_ID_I, freq);
-                ratio_list[i] = (voltage / current);
+                // ratio_list[i] = voltage / current;
+                ratio_list[i] = current / voltage;
             }
 
             Complex ratio = mid(ratio_list, measurement_cycle);
@@ -517,7 +587,7 @@ void pga_calibration()
 
             // printf("%dkHz, %d/%d, Ratio: %.5f + %.5fi = |%.6f|\n", freq / 1000, pga_v_gain_id, pga_i_gain_id, ratio.real, ratio.im, ratio.abs);
             printf("{%.4f,%.4f}", ratio.real, ratio.im);
-            pga_v_gain_id++;
+            pga_i_gain_id++;
             if (pga_v_gain_id >= 4 || pga_i_gain_id >= 4) {
                 break;
             } else {
@@ -670,7 +740,7 @@ extern DMA_HandleTypeDef hdma_dac1_ch1;
 void EXTI9_5_IRQHandler(void)
 {
     HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_8);
-    botton1_pushed = true;
+    button1_pushed = true;
 }
 
 /**
@@ -679,7 +749,7 @@ void EXTI9_5_IRQHandler(void)
 void EXTI15_10_IRQHandler(void)
 {
     HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_14);
-    botton2_pushed = true;
+    button2_pushed = true;
 }
 
 /**
