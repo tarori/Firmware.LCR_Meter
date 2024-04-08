@@ -296,24 +296,27 @@ void main_loop()
         lcd.printf("%5d%s %3.1fVrms %s", freq < 1000 ? freq : freq / 1000, freq < 1000 ? "Hz" : "kHz", v_rms, dc_couple ? "DC" : "AC");
 
         lcd.locate(1, 6);
-        lcd.printf("%s Z ", sp_mode ? "Ser" : "Par");
+        lcd.printf("%s Z:", sp_mode ? "Serial" : "Parallel");
         if (impedance.abs > 1e+9) {
-            lcd.printf(" ---- Ohm");
+            lcd.printf(" ---- $");
         } else if (impedance.abs > 1e+6) {
-            lcd.printf("%6.2fMOhm", impedance.abs / 1e+6);
+            lcd.printf("%6.2fM$", impedance.abs / 1e+6);
         } else if (impedance.abs > 1e+5) {
-            lcd.printf("%6.4fMOhm", impedance.abs / 1e+6);
+            lcd.printf("%6.4fM$", impedance.abs / 1e+6);
         } else if (impedance.abs > 1e+4) {
-            lcd.printf("%6.2fkOhm", impedance.abs / 1e+3);
+            lcd.printf("%6.2fk$", impedance.abs / 1e+3);
         } else if (impedance.abs > 1e+2) {
-            lcd.printf("%6.1f Ohm", impedance.abs);
+            lcd.printf("%6.1f $", impedance.abs);
         } else if (impedance.abs > 1e+1) {
-            lcd.printf("%6.3f Ohm", impedance.abs);
+            lcd.printf("%6.3f $", impedance.abs);
         } else if (impedance.abs > 1) {
-            lcd.printf("%6.2f Ohm", impedance.abs);
+            lcd.printf("%6.2f $", impedance.abs);
         } else {
-            lcd.printf("%6.1fmOhm", impedance.abs * 1000);
+            lcd.printf("%6.1fm$", impedance.abs * 1000);
         }
+
+        lcd.locate(2, 6);
+        lcd.printf("TIA:%d  PGA:(%d,%d)", tia_gain_id, pga_v_gain_id, pga_i_gain_id);
 
         lcd.locate(3, 6);
         lcd.set_fontsize(16);
@@ -321,61 +324,67 @@ void main_loop()
         if (capacitance > 0) {
             lcd.printf("%s", sp_mode ? "Cs" : "Cp");
             if (capacitance > 1.0e-1) {
-                lcd.printf(" ---- uF ");
+                lcd.printf(" ---- uF");
             } else if (capacitance > 1.0e-3) {
-                lcd.printf(" %6.0fuF ", capacitance * 1.0e+6);
+                lcd.printf("%7.0fuF", capacitance * 1.0e+6);
             } else if (capacitance > 1.0e-4) {
-                lcd.printf("%6.1fuF ", capacitance * 1.0e+6);
+                lcd.printf("%6.1fuF", capacitance * 1.0e+6);
             } else if (capacitance > 1.0e-6) {
-                lcd.printf("%6.2fuF ", capacitance * 1.0e+6);
+                lcd.printf("%6.2fuF", capacitance * 1.0e+6);
+            } else if (capacitance > 1.0e-7) {
+                lcd.printf("%6.4fuF", capacitance * 1.0e+6);
             } else if (capacitance > 1.0e-8) {
-                lcd.printf("%6.4fuF ", capacitance * 1.0e+6);
+                lcd.printf("%6.2fnF", capacitance * 1.0e+9);
             } else if (capacitance > 1.0e-9) {
-                lcd.printf("%6.2fpF ", capacitance * 1.0e+12);
+                lcd.printf("%6.2fpF", capacitance * 1.0e+12);
             } else if (capacitance > 1.0e-11) {
-                lcd.printf("%6.2fpF ", capacitance * 1.0e+12);
-            } else if (capacitance > 1.0e-12) {
-                lcd.printf("%6.3fpF ", capacitance * 1.0e+12);
+                lcd.printf("%6.2fpF", capacitance * 1.0e+12);
+            } else if (capacitance > 1.0e-12 || freq < 100000) {
+                lcd.printf("%6.3fpF", capacitance * 1.0e+12);
             } else {
-                lcd.printf("%6.1ffF ", capacitance * 1.0e+15);
+                lcd.printf("%6.1ffF", capacitance * 1.0e+15);
             }
         }
 
         if (inductance > 0) {
             lcd.printf("%s", sp_mode ? "Ls" : "Lp");
             if (inductance > 1.0e-1) {
-                lcd.printf(" ---- uH ");
-            } else if (inductance < 1.0e-4) {
-                lcd.printf("%6.3fuH ", inductance * 1.0e+6);
-            } else if (inductance < 1.0e-3) {
-                lcd.printf("%6.1fuH ", inductance * 1.0e+6);
+                lcd.printf(" ---- mH");
+            } else if (inductance > 1.0e-3) {
+                lcd.printf("%6.3fmH", inductance * 1.0e+3);
+            } else if (inductance > 1.0e-3) {
+                lcd.printf("%6.1fuH", inductance * 1.0e+6);
+            } else if (inductance > 1.0e-4) {
+                lcd.printf("%6.2fuH", inductance * 1.0e+6);
+            } else if (inductance > 1.0e-6 || freq < 100000) {
+                lcd.printf("%6.3fuH", inductance * 1.0e+6);
             } else {
-                lcd.printf("%6.0fuH ", inductance * 1.0e+6);
+                lcd.printf("%6.1fnH", inductance * 1.0e+9);
             }
         }
 
         lcd.locate(5, 6);
         lcd.printf("%s", sp_mode ? "Rs" : "Rp");
         if (resistance < -0.1 || resistance > 1e+7) {
-            lcd.printf(" ---- Ohm");
+            lcd.printf(" ---- $");
         } else if (resistance > 1e+6) {
-            lcd.printf("%5.2fMOhm", resistance / 1e+6);
+            lcd.printf("%5.3fM$", resistance / 1e+6);
         } else if (resistance > 1e+5) {
-            lcd.printf("%5.3fMOhm", resistance / 1e+6);
+            lcd.printf("%5.4fM$", resistance / 1e+6);
         } else if (resistance > 1e+4) {
-            lcd.printf("%5.1fkOhm", resistance / 1e+3);
+            lcd.printf("%5.2fk$", resistance / 1e+3);
         } else if (resistance > 1e+3) {
-            lcd.printf("%5.0f Ohm", resistance);
+            lcd.printf("%5.1f $", resistance);
         } else if (resistance > 1e+1) {
-            lcd.printf("%5.1f Ohm", resistance);
+            lcd.printf("%5.2f $", resistance);
         } else if (resistance > 1) {
-            lcd.printf("%5.3f Ohm", resistance);
+            lcd.printf("%5.4f $", resistance);
         } else {
-            lcd.printf("%5.1fmOhm", resistance * 1000);
+            lcd.printf("%5.1fm$", resistance * 1000);
         }
 
         if (1) {
-            lcd.locate(7, 32);
+            lcd.locate(7, 12);
             lcd.set_fontsize(8);
             lcd.printf("Q = ");
             float q = abs(impedance.im / impedance.real);
@@ -386,6 +395,9 @@ void main_loop()
             } else {
                 lcd.printf("%5.3f", q);
             }
+
+            float theta_deg = 360.0f / (2 * PI) * atan2(impedance.im, impedance.real);
+            lcd.printf(" %5.2fdeg", theta_deg);
         }
 
         if (button1_pushed) {
