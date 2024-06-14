@@ -40,7 +40,7 @@ constexpr int freq_list_length = 13;
 struct Settings {
     int freq_list[freq_list_length] = {40, 120, 400, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, 1000000};
 
-    float adc_ratio = -1;
+    float adc_ratio = -1.000f;
     float adc_delay_err = 1.1e-9f;
 
     float short_resistance = 0.0f;
@@ -191,8 +191,8 @@ void main_loop()
         }
 
         while (0) {
-            // adc_calibration();
-            pga_calibration();
+            adc_calibration();
+            // pga_calibration();
             delay_ms(5000);
         }
 
@@ -396,7 +396,7 @@ void main_loop()
                 lcd.printf("%5.3f", q);
             }
 
-            float theta_deg = 360.0f / (2 * PI) * atan2(impedance.im, impedance.real);
+            float theta_deg = 360.0f / (2 * PI) * atan2(abs(impedance.im), abs(impedance.real));
             lcd.printf(" %5.2fdeg", theta_deg);
         }
 
@@ -495,7 +495,8 @@ float set_dac_output(int freq, float v_rms)
         v_rms = 1.4f;
     }
     for (uint32_t i = 0; i < dac_dma_buf_len; ++i) {
-        dac_dma_buffer[i] = 2250 + 1285.0f * v_rms * my_fast_sin(2 * PI * i * freq / (double)dac_sampling_freq);
+        float dither = (rand() % 4) - 1.5f;
+        dac_dma_buffer[i] = 2250 + 1285.0f * v_rms * my_fast_sin(2 * PI * i * freq / (double)dac_sampling_freq) + dither;
     }
 
     set_dac_bw(freq);
@@ -516,7 +517,7 @@ bool adc_is_clipping(LCR_ID_IV id, bool strict)
     uint16_t min_val = *std::min_element(adc_data_buffer[id], adc_data_buffer[id] + adc_data_buf_len);
     uint16_t max_val = *std::max_element(adc_data_buffer[id], adc_data_buffer[id] + adc_data_buf_len);
     if (strict) {
-        return min_val < UINT16_MAX * 0.4f || max_val > UINT16_MAX * 0.6f;
+        return min_val < UINT16_MAX * 0.3f || max_val > UINT16_MAX * 0.7f;
     } else {
         return min_val < UINT16_MAX * 0.2f || max_val > UINT16_MAX * 0.8f;
     }
@@ -539,7 +540,7 @@ void coupling_set_dc(bool cur, bool pot)
 void adc_calibration()
 {
     tia_set_gain(0);
-    int freq_id = 12;
+    int freq_id = 9;
     int freq = settings.freq_list[freq_id];
     set_dac_output(freq, 1.0f);
     tia_set_gain(0);
@@ -599,7 +600,7 @@ void pga_calibration()
 
             // printf("%dkHz, %d/%d, Ratio: %.5f + %.5fi = |%.6f|\n", freq / 1000, pga_v_gain_id, pga_i_gain_id, ratio.real, ratio.im, ratio.abs);
             printf("{%.4f,%.4f}", ratio.real, ratio.im);
-            pga_i_gain_id++;
+            pga_v_gain_id++;
             if (pga_v_gain_id >= 4 || pga_i_gain_id >= 4) {
                 break;
             } else {
