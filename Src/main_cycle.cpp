@@ -40,51 +40,51 @@ constexpr int freq_list_length = 13;
 struct Settings {
     int freq_list[freq_list_length] = {40, 120, 400, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, 1000000};
 
-    float adc_ratio = -1.000f;
+    float adc_ratio = -1.0f;
     float adc_delay_err = 1.1e-9f;
 
     float short_resistance = 0.0f;
     float short_inductance = 0.0e-6f;
     float open_resistance = 1.0e+24f;
-    float open_capacitance = 0.375e-12f;
+    float open_capacitance = 0.031e-12f;
 
     Complex pga_v_gain_table[freq_list_length][4] = {
-        // 1, 2.9608, 10.067, 30.2
-        {{1.0000, 0.0000}, {2.9617, 0.0000}, {10.0642, 0.0004}, {30.1768, 0.0044}},
-        {{1.0000, 0.0000}, {2.9617, -0.0000}, {10.0641, 0.0003}, {30.1768, 0.0021}},
-        {{1.0000, 0.0000}, {2.9617, -0.0000}, {10.0646, -0.0002}, {30.1800, -0.0009}},
-        {{1.0000, 0.0000}, {2.9616, -0.0000}, {10.0643, -0.0008}, {30.1784, -0.0081}},
-        {{1.0000, 0.0000}, {2.9616, -0.0001}, {10.0646, -0.0021}, {30.1813, -0.0181}},
-        {{1.0000, 0.0000}, {2.9616, -0.0001}, {10.0646, -0.0056}, {30.1825, -0.0487}},
-        {{1.0000, 0.0000}, {2.9616, -0.0002}, {10.0646, -0.0116}, {30.1818, -0.0990}},
-        {{1.0000, 0.0000}, {2.9615, -0.0005}, {10.0652, -0.0232}, {30.1839, -0.2016}},
-        {{1.0000, 0.0000}, {2.9614, -0.0014}, {10.0638, -0.0597}, {30.1721, -0.5162}},
-        {{1.0000, 0.0000}, {2.9613, -0.0024}, {10.0616, -0.1186}, {30.1364, -1.0180}},
-        {{1.0000, 0.0000}, {2.9615, -0.0047}, {10.0593, -0.2369}, {30.0637, -2.0504}},
-        {{1.0000, 0.0000}, {2.9618, -0.0114}, {10.0253, -0.5872}, {29.3079, -4.9519}},
-        {{1.0000, 0.0000}, {2.9631, -0.0241}, {9.9172, -1.1581}, {27.0945, -9.0999}}};
+        // 1, 4.75, 17.944, 53.833
+        {{1.0000, 0.0000}, {4.7467, 0.0000}, {17.8979, 0.0030}, {53.6944, 0.0307}},
+        {{1.0000, 0.0000}, {4.7468, 0.0002}, {17.9027, 0.0013}, {53.6910, 0.0330}},
+        {{1.0000, 0.0000}, {4.7468, -0.0000}, {17.9042, 0.0002}, {53.7059, 0.0010}},
+        {{1.0000, 0.0000}, {4.7468, -0.0001}, {17.9053, -0.0026}, {53.7203, -0.0199}},
+        {{1.0000, 0.0000}, {4.7469, -0.0004}, {17.9063, -0.0072}, {53.7271, -0.0554}},
+        {{1.0000, 0.0000}, {4.7469, -0.0011}, {17.9053, -0.0191}, {53.7275, -0.1659}},
+        {{1.0000, 0.0000}, {4.7469, -0.0024}, {17.9070, -0.0380}, {53.7301, -0.3144}},
+        {{1.0000, 0.0000}, {4.7470, -0.0048}, {17.9041, -0.0770}, {53.7047, -0.6651}},
+        {{1.0000, 0.0000}, {4.7472, -0.0129}, {17.9076, -0.1907}, {53.6537, -1.6766}},
+        {{1.0000, 0.0000}, {4.7476, -0.0252}, {17.8969, -0.3869}, {53.5052, -3.3380}},
+        {{1.0000, 0.0000}, {4.7458, -0.0506}, {17.8588, -0.7506}, {53.0924, -6.8725}},
+        {{1.0000, 0.0000}, {4.7441, -0.1322}, {17.6974, -1.9380}, {49.0136, -15.0470}},
+        {{1.0000, 0.0000}, {4.7268, -0.2560}, {17.0853, -3.7756}, {38.7985, -24.0255}}};
 
     Complex pga_i_gain_table[freq_list_length][4] = {
-        // 1, 2.9608, 10.067, 30.2
-        {{1.0000, 0.0000}, {2.9604, 0.0000}, {10.0630, 0.0003}, {30.1343, 0.0038}},
-        {{1.0000, 0.0000}, {2.9604, 0.0000}, {10.0629, 0.0001}, {30.1364, 0.0026}},
-        {{1.0000, 0.0000}, {2.9604, -0.0000}, {10.0632, -0.0003}, {30.1385, -0.0026}},
-        {{1.0000, 0.0000}, {2.9604, -0.0000}, {10.0631, -0.0009}, {30.1395, -0.0092}},
-        {{1.0000, 0.0000}, {2.9604, -0.0000}, {10.0630, -0.0022}, {30.1396, -0.0188}},
-        {{1.0000, 0.0000}, {2.9604, -0.0001}, {10.0632, -0.0057}, {30.1402, -0.0494}},
-        {{1.0000, 0.0000}, {2.9604, -0.0002}, {10.0632, -0.0111}, {30.1388, -0.0987}},
-        {{1.0000, 0.0000}, {2.9604, -0.0004}, {10.0630, -0.0227}, {30.1330, -0.1966}},
-        {{1.0000, 0.0000}, {2.9604, -0.0011}, {10.0633, -0.0580}, {30.1385, -0.4958}},
-        {{1.0000, 0.0000}, {2.9606, -0.0024}, {10.0624, -0.1164}, {30.1122, -0.9963}},
-        {{1.0000, 0.0000}, {2.9608, -0.0045}, {10.0567, -0.2312}, {29.9995, -1.9847}},
-        {{1.0000, 0.0000}, {2.9618, -0.0125}, {10.0291, -0.5822}, {29.3432, -4.8829}},
-        {{1.0000, 0.0000}, {2.9653, -0.0257}, {9.9333, -1.1577}, {27.1517, -8.9789}}};
+        // 1, 4.75, 17.944, 53.833
+        {{1.0000, 0.0000}, {4.7457, 0.0001}, {17.8672, 0.0025}, {53.2769, 0.0441}},
+        {{1.0000, 0.0000}, {4.7459, 0.0001}, {17.8677, 0.0026}, {53.3189, 0.0209}},
+        {{1.0000, 0.0000}, {4.7460, -0.0000}, {17.8699, 0.0011}, {53.3279, 0.0000}},
+        {{1.0000, 0.0000}, {4.7460, -0.0002}, {17.8706, -0.0017}, {53.3423, -0.0190}},
+        {{1.0000, 0.0000}, {4.7461, -0.0005}, {17.8720, -0.0063}, {53.3464, -0.0508}},
+        {{1.0000, 0.0000}, {4.7460, -0.0013}, {17.8732, -0.0179}, {53.3543, -0.1486}},
+        {{1.0000, 0.0000}, {4.7460, -0.0026}, {17.8722, -0.0372}, {53.3430, -0.3134}},
+        {{1.0000, 0.0000}, {4.7456, -0.0052}, {17.8679, -0.0780}, {53.3156, -0.6126}},
+        {{1.0000, 0.0000}, {4.7457, -0.0132}, {17.8722, -0.1874}, {53.3516, -1.6210}},
+        {{1.0000, 0.0000}, {4.7454, -0.0263}, {17.8693, -0.3768}, {53.2390, -3.2283}},
+        {{1.0000, 0.0000}, {4.7455, -0.0520}, {17.7994, -0.7355}, {52.9460, -6.1883}},
+        {{1.0000, 0.0000}, {4.7421, -0.1300}, {17.6823, -1.8901}, {49.1995, -14.9608}},
+        {{1.0000, 0.0000}, {4.7296, -0.2613}, {17.1077, -3.6810}, {38.4631, -23.7216}}};
 
     float tia_res_table[4] = {20, 100, 1000, 20000};
     float tia_cap_table[4] = {0e-12, 0e-12, 0e-12, 2e-12};
 
-    uint32_t adc1_linearity_cal[ADC_LINEAR_CALIB_REG_COUNT] = {0x20080601, 0x2017fe01, 0x2007ea04, 0x2027f5fe, 0x1fe801fe, 0x0209};
-    uint32_t adc2_linearity_cal[ADC_LINEAR_CALIB_REG_COUNT] = {0x1fe7fdff, 0x20180dff, 0x20180603, 0x20280e00, 0x1ff7f9ff, 0x0200};
+    uint32_t adc1_linearity_cal[ADC_LINEAR_CALIB_REG_COUNT] = {0x20080e02, 0x20080600, 0x2007fdfe, 0x200805ff, 0x20181200, 0x01ff};
+    uint32_t adc2_linearity_cal[ADC_LINEAR_CALIB_REG_COUNT] = {0x2017fdff, 0x20380200, 0x1ff809fd, 0x1ff80601, 0x201811ff, 0x01fd};
 } settings;
 
 SMR12864 lcd;
@@ -101,6 +101,7 @@ void coupling_set_dc(bool cur, bool pot);
 struct Complex calc_fourier(LCR_ID_IV id, int freq);
 void set_dac_bw(int freq);
 void adc_calibration_dump();
+void set_backlight(bool state);
 
 void main_loop()
 {
@@ -158,11 +159,13 @@ void main_loop()
     TIM3->CNT = INT16_MAX;
     TIM4->CNT = INT16_MAX;
 
+    set_backlight(false);
+
     int freq = 0;
     int freq_id = 9;  // 100kHz Default
     bool dac_changed = true;
     TIM4->CNT -= 4 * ((TIM4->CNT / 4 - freq_id) % freq_list_length);
-    float v_rms = 0.5f;
+    float v_rms = 1.0f;
     bool dc_couple = true;
 
     init_done = true;
@@ -321,11 +324,9 @@ void main_loop()
         lcd.locate(3, 6);
         lcd.set_fontsize(16);
 
-        if (capacitance > 0) {
+        if (capacitance > 0 && capacitance < 1.0e-1) {
             lcd.printf("%s", sp_mode ? "Cs" : "Cp");
-            if (capacitance > 1.0e-1) {
-                lcd.printf(" ---- uF");
-            } else if (capacitance > 1.0e-3) {
+            if (capacitance > 1.0e-3) {
                 lcd.printf("%7.0fuF", capacitance * 1.0e+6);
             } else if (capacitance > 1.0e-4) {
                 lcd.printf("%6.1fuF", capacitance * 1.0e+6);
@@ -346,11 +347,9 @@ void main_loop()
             }
         }
 
-        if (inductance > 0) {
+        if (inductance > 0 && inductance < 1.0e-1) {
             lcd.printf("%s", sp_mode ? "Ls" : "Lp");
-            if (inductance > 1.0e-1) {
-                lcd.printf(" ---- mH");
-            } else if (inductance > 1.0e-3) {
+            if (inductance > 1.0e-3) {
                 lcd.printf("%6.3fmH", inductance * 1.0e+3);
             } else if (inductance > 1.0e-3) {
                 lcd.printf("%6.1fuH", inductance * 1.0e+6);
@@ -365,8 +364,12 @@ void main_loop()
 
         lcd.locate(5, 6);
         lcd.printf("%s", sp_mode ? "Rs" : "Rp");
-        if (resistance < -0.1 || resistance > 1e+7) {
+        if (resistance < -0.1 || resistance > 1e+9) {
             lcd.printf(" ---- $");
+        } else if (resistance > 1e+8) {
+            lcd.printf("%6.1fM$", resistance / 1e+6);
+        } else if (resistance > 1e+7) {
+            lcd.printf("%5.2fM$", resistance / 1e+6);
         } else if (resistance > 1e+6) {
             lcd.printf("%5.3fM$", resistance / 1e+6);
         } else if (resistance > 1e+5) {
@@ -451,8 +454,8 @@ void measure_short_voltage_current()
 
 void adc_calibration_dump()
 {
-    LL_ADC_SetCommonClock(__LL_ADC_COMMON_INSTANCE(hadc1.Instance), ADC_CLOCK_ASYNC_DIV4);
-    LL_ADC_SetCommonClock(__LL_ADC_COMMON_INSTANCE(hadc2.Instance), ADC_CLOCK_ASYNC_DIV4);
+    // LL_ADC_SetCommonClock(__LL_ADC_COMMON_INSTANCE(hadc1.Instance), ADC_CLOCK_ASYNC_DIV4);
+    // LL_ADC_SetCommonClock(__LL_ADC_COMMON_INSTANCE(hadc2.Instance), ADC_CLOCK_ASYNC_DIV4);
     delay_ms(1000);
     HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET_LINEARITY, ADC_DIFFERENTIAL_ENDED);
     HAL_ADCEx_Calibration_Start(&hadc2, ADC_CALIB_OFFSET_LINEARITY, ADC_DIFFERENTIAL_ENDED);
@@ -489,15 +492,6 @@ calc_fourier(LCR_ID_IV id, int freq)
 
 float set_dac_output(int freq, float v_rms)
 {
-    float k = sqrt(1.0f + 6e-12 * freq * freq);
-    v_rms *= k;
-    if (v_rms > 1.4f) {
-        v_rms = 1.4f;
-    }
-    for (uint32_t i = 0; i < dac_dma_buf_len; ++i) {
-        float dither = (rand() % 4) - 1.5f;
-        dac_dma_buffer[i] = 2250 + 1285.0f * v_rms * my_fast_sin(2 * PI * i * freq / (double)dac_sampling_freq) + dither;
-    }
 
     set_dac_bw(freq);
 
@@ -507,6 +501,16 @@ float set_dac_output(int freq, float v_rms)
     } else {
         TIM7->ARR = 48 - 1;
         dac_sampling_freq = 5e+6;
+    }
+
+    float k = sqrt(1.0f + 2.7e-12 * freq * freq);
+    v_rms *= k;
+    if (v_rms > 1.5f) {
+        v_rms = 1.5f;
+    }
+    for (uint32_t i = 0; i < dac_dma_buf_len; ++i) {
+        float dither = (rand() % 4) - 1.5f;
+        dac_dma_buffer[i] = 2043.0f + 1173.0f * v_rms * my_fast_sin(2 * PI * i * freq / (double)dac_sampling_freq) + dither;
     }
 
     return v_rms / k;
@@ -529,6 +533,10 @@ void set_iv_mux_sw(bool sw1, bool sw2)
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_11, sw2 ? GPIO_PIN_SET : GPIO_PIN_RESET);
 }
 
+void set_backlight(bool state)
+{
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, state ? GPIO_PIN_SET : GPIO_PIN_RESET);
+}
 
 void coupling_set_dc(bool cur, bool pot)
 {
@@ -556,7 +564,7 @@ void adc_calibration()
     Complex voltage = calc_fourier(LCR_ID_V, freq);
     Complex current = calc_fourier(LCR_ID_I, freq);
     Complex ratio = current / voltage;
-    float delay_s = -atan2(ratio.im, ratio.real) / 2 / PI / freq;
+    float delay_s = -atan2(ratio.im, ratio.real) / (2 * PI * freq);
     printf("ADC Cal Ratio: %f, Delay %fns, Complex: %f+%fi\n", ratio.abs, delay_s * 1.0e+9, ratio.real, ratio.im);
 }
 
@@ -570,7 +578,7 @@ void pga_calibration()
         printf("{");
         while (1) {
             float v_rms = std::min(1.0f / settings.pga_v_gain_table[freq_id][pga_v_gain_id].abs, 1.0f / settings.pga_i_gain_table[freq_id][pga_i_gain_id].abs);
-            set_dac_output(freq, v_rms);
+            set_dac_output(freq, 0.5f * v_rms);
             pga_set_gain(LCR_ID_V, pga_v_gain_id);
             pga_set_gain(LCR_ID_I, pga_i_gain_id);
             set_iv_mux_sw(true, false);
@@ -588,15 +596,15 @@ void pga_calibration()
 
                 Complex voltage = calc_fourier(LCR_ID_V, freq);
                 Complex current = calc_fourier(LCR_ID_I, freq);
-                // ratio_list[i] = voltage / current;
-                ratio_list[i] = current / voltage;
+                ratio_list[i] = voltage / current;
+                // ratio_list[i] = current / voltage;
             }
 
             Complex ratio = mid(ratio_list, measurement_cycle);
 
             // printf("%dkHz, %d/%d, Ratio: %.5f + %.5fi = |%.6f|\n", freq / 1000, pga_v_gain_id, pga_i_gain_id, ratio.real, ratio.im, ratio.abs);
             printf("{%.4f,%.4f}", ratio.real, ratio.im);
-            pga_i_gain_id++;
+            pga_v_gain_id++;
             if (pga_v_gain_id >= 4 || pga_i_gain_id >= 4) {
                 break;
             } else {
