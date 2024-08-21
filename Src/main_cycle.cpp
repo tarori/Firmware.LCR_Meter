@@ -2,6 +2,7 @@
 #include "adc.h"
 #include "dac.h"
 #include "tim.h"
+#include "usart.h"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -17,6 +18,7 @@
 volatile bool init_done = false;
 volatile bool button1_pushed = false;
 volatile bool button2_pushed = false;
+volatile bool button3_pushed = true;
 
 enum LCR_ID_IV {
     LCR_ID_I = 0,
@@ -35,6 +37,11 @@ constexpr uint32_t adc_data_buf_len = 24000;
 __attribute__((section(".RAM_DATA"))) uint16_t adc_data_buffer[2][adc_data_buf_len];
 float adc_sampling_freq = 120e+6 / 125;
 
+bool read_button3()
+{
+    return HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8) == GPIO_PIN_RESET;
+}
+
 constexpr int freq_list_length = 13;
 
 struct Settings {
@@ -46,7 +53,7 @@ struct Settings {
     float short_resistance = 0.0f;
     float short_inductance = 0.0e-6f;
     float open_resistance = 1.0e+24f;
-    float open_capacitance = 0.031e-12f;
+    float open_capacitance = 0.096e-12f;
 
     Complex pga_v_gain_table[freq_list_length][4] = {
         // 1, 4.75, 17.944, 53.833
@@ -81,7 +88,7 @@ struct Settings {
         {{1.0000, 0.0000}, {4.7296, -0.2613}, {17.1077, -3.6810}, {38.4631, -23.7216}}};
 
     float tia_res_table[4] = {20, 100, 1000, 20000};
-    float tia_cap_table[4] = {0e-12, 0e-12, 0e-12, 2e-12};
+    float tia_cap_table[4] = {-50e-12, 11.5e-12, 10.2e-12, 1.4e-12};
 
     uint32_t adc1_linearity_cal[ADC_LINEAR_CALIB_REG_COUNT] = {0x20080e02, 0x20080600, 0x2007fdfe, 0x200805ff, 0x20181200, 0x01ff};
     uint32_t adc2_linearity_cal[ADC_LINEAR_CALIB_REG_COUNT] = {0x2017fdff, 0x20380200, 0x1ff809fd, 0x1ff80601, 0x201811ff, 0x01fd};
@@ -128,8 +135,12 @@ void main_loop()
 
     delay_ms(10);
     int hal_state = HAL_OK;
-    hal_state |= HAL_ADCEx_LinearCalibration_SetValue(&hadc1, settings.adc1_linearity_cal);
-    hal_state |= HAL_ADCEx_LinearCalibration_SetValue(&hadc2, settings.adc2_linearity_cal);
+    // hal_state |= HAL_ADCEx_LinearCalibration_SetValue(&hadc1, settings.adc1_linearity_cal);
+    // hal_state |= HAL_ADCEx_LinearCalibration_SetValue(&hadc2, settings.adc2_linearity_cal);
+    hal_state |= HAL_ADCEx_LinearCalibration_FactorLoad(&hadc1);
+    hal_state |= HAL_ADCEx_LinearCalibration_FactorLoad(&hadc2);
+    // hal_state |= HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET_LINEARITY, ADC_DIFFERENTIAL_ENDED);
+    // hal_state |= HAL_ADCEx_Calibration_Start(&hadc2, ADC_CALIB_OFFSET_LINEARITY, ADC_DIFFERENTIAL_ENDED);
     hal_state |= HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET, ADC_DIFFERENTIAL_ENDED);
     hal_state |= HAL_ADCEx_Calibration_Start(&hadc2, ADC_CALIB_OFFSET, ADC_DIFFERENTIAL_ENDED);
     hal_state |= HAL_ADCEx_Calibration_Start(&hadc3, ADC_CALIB_OFFSET, ADC_SINGLE_ENDED);
@@ -166,6 +177,7 @@ void main_loop()
     bool dac_changed = true;
     TIM4->CNT -= 4 * ((TIM4->CNT / 4 - freq_id) % freq_list_length);
     float v_rms = 1.0f;
+    TIM3->CNT = INT16_MAX + 4 * (v_rms / 0.1f);
     bool dc_couple = true;
 
     init_done = true;
@@ -174,6 +186,11 @@ void main_loop()
         if (freq_id != freq_id_new) {
             dac_changed = true;
             freq_id = freq_id_new;
+        }
+
+        v_rms = (((int32_t)TIM3->CNT - INT16_MAX) / 4) * 0.1f;
+        if (v_rms <= 0) {
+            v_rms = 0.05f;
         }
 
         if (button2_pushed) {
@@ -274,20 +291,41 @@ void main_loop()
 
         float omega = 2 * PI * freq;
 
-        float open_capacitance = settings.open_capacitance;
         impedance = impedance - Complex(settings.short_resistance, omega * settings.short_inductance);
         Complex conductance = Complex(1.0f) / impedance;
-        conductance = conductance - Complex(1.0f / settings.open_resistance, omega * open_capacitance);
+        conductance = conductance - Complex(1.0f / settings.open_resistance, omega * settings.open_capacitance);
         impedance = Complex(1.0f) / conductance;
 
         bool sp_mode = true;  // series
         if (impedance.abs > 1.2e+3) {
             sp_mode = false;  // parallel
+        } else if (impedance.abs > 50 && impedance.real * 1.2f > impedance.abs) {
+            sp_mode = false;  // parallel;
+        }
+
+        if (freq == 120 && impedance.abs > 1e+1) {
+            sp_mode = false;
         }
 
         float resistance = sp_mode ? impedance.real : 1.0f / conductance.real;
         float inductance = sp_mode ? impedance.im / omega : -1.0f / conductance.im / omega;
         float capacitance = sp_mode ? -1.0f / (impedance.im * omega) : conductance.im / omega;
+
+
+        if (button3_pushed) {
+            button3_pushed = false;
+            if (impedance.abs < 10.0f && sp_mode == true) {
+                // Short Compensation
+                settings.short_inductance = settings.short_inductance + inductance;
+                settings.short_resistance = settings.short_resistance + resistance;
+            }
+
+            if (impedance.abs > 10000.0f && sp_mode == false) {
+                // Open Compensation
+                settings.open_capacitance = settings.open_capacitance + capacitance;
+                settings.open_resistance = settings.open_resistance + resistance;
+            }
+        }
 
         if (abs(capacitance) > 1.0e-8) {
             printf("R: %.4fOhm, L: %.4fuH, C: %.4fuF, Z: %.4fOhm\n", resistance, inductance * 1.0e+6, capacitance * 1.0e+6, impedance.abs);
@@ -296,7 +334,7 @@ void main_loop()
         }
 
         lcd.cls();
-        lcd.printf("%5d%s %3.1fVrms %s", freq < 1000 ? freq : freq / 1000, freq < 1000 ? "Hz" : "kHz", v_rms, dc_couple ? "DC" : "AC");
+        lcd.printf("%5d%s %4.2fVrms %s", freq < 1000 ? freq : freq / 1000, freq < 1000 ? "Hz" : "kHz", v_rms, dc_couple ? "DC" : "AC");
 
         lcd.locate(1, 6);
         lcd.printf("%s Z:", sp_mode ? "Serial" : "Parallel");
@@ -324,7 +362,7 @@ void main_loop()
         lcd.locate(3, 6);
         lcd.set_fontsize(16);
 
-        if (capacitance > 0 && capacitance < 1.0e-1) {
+        if (capacitance > -10e-15 && capacitance < 1.0e-1) {
             lcd.printf("%s", sp_mode ? "Cs" : "Cp");
             if (capacitance > 1.0e-3) {
                 lcd.printf("%7.0fuF", capacitance * 1.0e+6);
@@ -401,11 +439,6 @@ void main_loop()
 
             float theta_deg = 360.0f / (2 * PI) * atan2(abs(impedance.im), abs(impedance.real));
             lcd.printf(" %5.2fdeg", theta_deg);
-        }
-
-        if (button1_pushed) {
-            settings.open_capacitance = settings.open_capacitance + capacitance;
-            button1_pushed = false;
         }
     }
 }
@@ -735,6 +768,51 @@ void callback_1ms()
     if (!init_done) {
         return;
     }
+
+    static bool button3_prev = false;
+    if (read_button3()) {
+        if (button3_prev == false) {
+            button3_prev = true;
+            button3_pushed = true;
+        }
+    } else {
+        button3_prev = false;
+    }
+}
+
+extern "C" {
+
+int _read(int file, char* ptr, int len)
+{
+    (void)file;
+
+    HAL_UART_Receive(&huart8, (uint8_t*)ptr, len, 0xFFFF);
+
+    /*
+    int DataIdx;
+
+    for (DataIdx = 0; DataIdx < len; DataIdx++) {
+        *ptr++ = __io_getchar();
+    }
+    */
+    return len;
+}
+
+int _write(int file, char* ptr, int len)
+{
+    (void)file;
+
+    HAL_UART_Transmit(&huart8, (uint8_t*)ptr, len, 0xFFFF);
+
+    /*
+    int DataIdx;
+
+    for (DataIdx = 0; DataIdx < len; DataIdx++) {
+        __io_putchar(*ptr++);
+    }
+    */
+    return len;
+}
 }
 
 extern "C" {
