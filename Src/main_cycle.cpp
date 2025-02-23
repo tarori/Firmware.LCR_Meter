@@ -55,6 +55,8 @@ struct Settings {
     float open_resistance = 1.0e+24f;
     float open_capacitance = 0.096e-12f;
 
+    int pga_gain_disp[4] = {1, 5, 20, 50};
+
     Complex pga_v_gain_table[freq_list_length][4] = {
         // 1, 4.75, 17.944, 53.833
         {{1.0000, 0.0000}, {4.7467, 0.0000}, {17.8979, 0.0030}, {53.6944, 0.0307}},
@@ -100,6 +102,7 @@ float set_dac_output(int freq, float v_rms);
 void measure_voltage_current();
 void measure_short_voltage_current();
 bool adc_is_clipping(LCR_ID_IV id, bool strict);
+float read_battery_voltage();
 void pga_calibration();
 void adc_calibration();
 void pga_set_gain(LCR_ID_IV id, int gain_id);
@@ -209,6 +212,8 @@ void main_loop()
             }
             // delay_ms(100);
         }
+
+        float battery_voltage = read_battery_voltage();
 
         while (0) {
             // adc_calibration();
@@ -328,16 +333,16 @@ void main_loop()
         }
 
         if (abs(capacitance) > 1.0e-8) {
-            printf("R: %.4fOhm, L: %.4fuH, C: %.4fuF, Z: %.4fOhm\n", resistance, inductance * 1.0e+6, capacitance * 1.0e+6, impedance.abs);
+            printf("R: %.4fOhm, L: %.4fuH, C: %.4fuF, Z: %.4fOhm, BAT: %.3fV\n", resistance, inductance * 1.0e+6, capacitance * 1.0e+6, impedance.abs, battery_voltage);
         } else {
-            printf("R: %.4fOhm, L: %.4fuH, C: %.4fpF, Z: %.4fOhm\n", resistance, inductance * 1.0e+6, capacitance * 1.0e+12, impedance.abs);
+            printf("R: %.4fOhm, L: %.4fuH, C: %.4fpF, Z: %.4fOhm, BAT: %.3fV\n", resistance, inductance * 1.0e+6, capacitance * 1.0e+12, impedance.abs, battery_voltage);
         }
 
         lcd.cls();
         lcd.printf("%5d%s %4.2fVrms %s", freq < 1000 ? freq : freq / 1000, freq < 1000 ? "Hz" : "kHz", v_rms, dc_couple ? "DC" : "AC");
 
         lcd.locate(1, 6);
-        lcd.printf("%s Z:", sp_mode ? "Serial" : "Parallel");
+        lcd.printf("B:%3.1fV  Z:", battery_voltage);
         if (impedance.abs > 1e+9) {
             lcd.printf(" ---- $");
         } else if (impedance.abs > 1e+6) {
@@ -357,7 +362,7 @@ void main_loop()
         }
 
         lcd.locate(2, 6);
-        lcd.printf("TIA:%d  PGA:(%d,%d)", tia_gain_id, pga_v_gain_id, pga_i_gain_id);
+        lcd.printf("TIA:%d PGA:[x%d,x%d]", tia_gain_id, settings.pga_gain_disp[pga_i_gain_id], settings.pga_gain_disp[pga_v_gain_id]);
 
         lcd.locate(3, 6);
         lcd.set_fontsize(16);
@@ -575,6 +580,15 @@ void coupling_set_dc(bool cur, bool pot)
 {
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, cur ? GPIO_PIN_SET : GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, pot ? GPIO_PIN_SET : GPIO_PIN_RESET);
+}
+
+float read_battery_voltage()
+{
+    HAL_ADC_Start(&hadc3);
+    HAL_ADC_PollForConversion(&hadc3, 100);
+    uint16_t adc_val = HAL_ADC_GetValue(&hadc3);
+    HAL_ADC_Stop(&hadc3);
+    return 3.3f * 2.0f / 4.0f * adc_val / 4096.0f;
 }
 
 
