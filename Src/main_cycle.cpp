@@ -28,14 +28,14 @@ enum LCR_ID_IV {
 // DAC
 constexpr uint32_t dac_dma_buf_len = 10000;
 __attribute__((section(".RAM_DMA"))) uint16_t dac_dma_buffer[dac_dma_buf_len];
-float dac_sampling_freq = 5.0e+6;
+double dac_sampling_freq = 5.0e+6;
 
 // ADC
 constexpr uint32_t adc_dma_buf_len = 256;
 __attribute__((section(".RAM_DMA"))) uint16_t adc_dma_buffer[2][adc_dma_buf_len];
 constexpr uint32_t adc_data_buf_len = 24000;
 __attribute__((section(".RAM_DATA"))) uint16_t adc_data_buffer[2][adc_data_buf_len];
-float adc_sampling_freq = 120e+6 / 125;
+double adc_sampling_freq = 120e+6 / 125;
 
 bool read_button3()
 {
@@ -47,13 +47,13 @@ constexpr int freq_list_length = 13;
 struct Settings {
     int freq_list[freq_list_length] = {40, 120, 400, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, 1000000};
 
-    float adc_ratio = -1.0f;
-    float adc_delay_err = 1.1e-9f;
+    double adc_ratio = -1.0;
+    double adc_delay_err = 1.1e-9;
 
-    float short_resistance = 0.0f;
-    float short_inductance = 0.0e-6f;
-    float open_resistance = 1.0e+24f;
-    float open_capacitance = 0.096e-12f;
+    double short_resistance = 0.0;
+    double short_inductance = 0.0e-6;
+    double open_resistance = 1.0e+24;
+    double open_capacitance = 0.096e-12;
 
     int pga_gain_disp[4] = {1, 5, 20, 50};
 
@@ -89,8 +89,8 @@ struct Settings {
         {{1.0000, 0.0000}, {4.7421, -0.1300}, {17.6823, -1.8901}, {49.1995, -14.9608}},
         {{1.0000, 0.0000}, {4.7296, -0.2613}, {17.1077, -3.6810}, {38.4631, -23.7216}}};
 
-    float tia_res_table[4] = {20, 100, 1000, 20000};
-    float tia_cap_table[4] = {-50e-12, 11.5e-12, 10.2e-12, 1.4e-12};
+    double tia_res_table[4] = {20, 100, 1000, 20000};
+    double tia_cap_table[4] = {-50e-12, 11.5e-12, 10.2e-12, 1.4e-12};
 
     uint32_t adc1_linearity_cal[ADC_LINEAR_CALIB_REG_COUNT] = {0x20080e02, 0x20080600, 0x2007fdfe, 0x200805ff, 0x20181200, 0x01ff};
     uint32_t adc2_linearity_cal[ADC_LINEAR_CALIB_REG_COUNT] = {0x2017fdff, 0x20380200, 0x1ff809fd, 0x1ff80601, 0x201811ff, 0x01fd};
@@ -98,11 +98,11 @@ struct Settings {
 
 SMR12864 lcd;
 
-float set_dac_output(int freq, float v_rms);
+double set_dac_output(int freq, double v_rms);
 void measure_voltage_current();
 void measure_short_voltage_current();
 bool adc_is_clipping(LCR_ID_IV id, bool strict);
-float read_battery_voltage();
+double read_battery_voltage();
 void pga_calibration();
 void adc_calibration();
 void pga_set_gain(LCR_ID_IV id, int gain_id);
@@ -179,8 +179,8 @@ void main_loop()
     int freq_id = 9;  // 100kHz Default
     bool dac_changed = true;
     TIM4->CNT -= 4 * ((TIM4->CNT / 4 - freq_id) % freq_list_length);
-    float v_rms = 1.0f;
-    TIM3->CNT = INT16_MAX + 4 * (v_rms / 0.1f);
+    double v_rms = 1.0;
+    TIM3->CNT = INT16_MAX + 4 * (v_rms / 0.1);
     bool dc_couple = true;
 
     init_done = true;
@@ -191,9 +191,9 @@ void main_loop()
             freq_id = freq_id_new;
         }
 
-        v_rms = (((int32_t)TIM3->CNT - INT16_MAX) / 4) * 0.1f;
+        v_rms = (((int32_t)TIM3->CNT - INT16_MAX) / 4) * 0.1;
         if (v_rms <= 0) {
-            v_rms = 0.05f;
+            v_rms = 0.05;
         }
 
         if (button2_pushed) {
@@ -213,7 +213,7 @@ void main_loop()
             // delay_ms(100);
         }
 
-        float battery_voltage = read_battery_voltage();
+        double battery_voltage = read_battery_voltage();
 
         while (0) {
             // adc_calibration();
@@ -280,7 +280,7 @@ void main_loop()
             voltage = calc_fourier(LCR_ID_V, freq);
             current = calc_fourier(LCR_ID_I, freq);
 
-            Complex tia_conductance = Complex{1 / settings.tia_res_table[tia_gain_id], 2 * (float)PI * freq * settings.tia_cap_table[tia_gain_id]};
+            Complex tia_conductance = Complex{1 / settings.tia_res_table[tia_gain_id], 2 * (double)PI * freq * settings.tia_cap_table[tia_gain_id]};
 
             current = current * tia_conductance;
 
@@ -294,17 +294,17 @@ void main_loop()
 
         printf("V: %.4f, I: %4f, Z: %4f, TIA: %d, PGA: %d, %d\n", voltage.abs, current.abs, impedance.abs, tia_gain_id, pga_v_gain_id, pga_i_gain_id);
 
-        float omega = 2 * PI * freq;
+        double omega = 2 * M_PI * freq;
 
         impedance = impedance - Complex(settings.short_resistance, omega * settings.short_inductance);
-        Complex conductance = Complex(1.0f) / impedance;
-        conductance = conductance - Complex(1.0f / settings.open_resistance, omega * settings.open_capacitance);
-        impedance = Complex(1.0f) / conductance;
+        Complex conductance = Complex(1.0) / impedance;
+        conductance = conductance - Complex(1.0 / settings.open_resistance, omega * settings.open_capacitance);
+        impedance = Complex(1.0) / conductance;
 
         bool sp_mode = true;  // series
         if (impedance.abs > 1.2e+3) {
             sp_mode = false;  // parallel
-        } else if (impedance.abs > 50 && impedance.real * 1.2f > impedance.abs) {
+        } else if (impedance.abs > 50 && impedance.real * 1.2 > impedance.abs) {
             sp_mode = false;  // parallel;
         }
 
@@ -312,20 +312,20 @@ void main_loop()
             sp_mode = false;
         }
 
-        float resistance = sp_mode ? impedance.real : 1.0f / conductance.real;
-        float inductance = sp_mode ? impedance.im / omega : -1.0f / conductance.im / omega;
-        float capacitance = sp_mode ? -1.0f / (impedance.im * omega) : conductance.im / omega;
+        double resistance = sp_mode ? impedance.real : 1.0 / conductance.real;
+        double inductance = sp_mode ? impedance.im / omega : -1.0 / conductance.im / omega;
+        double capacitance = sp_mode ? -1.0 / (impedance.im * omega) : conductance.im / omega;
 
 
         if (button3_pushed) {
             button3_pushed = false;
-            if (impedance.abs < 10.0f && sp_mode == true) {
+            if (impedance.abs < 10.0 && sp_mode == true) {
                 // Short Compensation
                 settings.short_inductance = settings.short_inductance + inductance;
                 settings.short_resistance = settings.short_resistance + resistance;
             }
 
-            if (impedance.abs > 10000.0f && sp_mode == false) {
+            if (impedance.abs > 10000.0 && sp_mode == false) {
                 // Open Compensation
                 settings.open_capacitance = settings.open_capacitance + capacitance;
                 settings.open_resistance = settings.open_resistance + resistance;
@@ -433,7 +433,7 @@ void main_loop()
             lcd.locate(7, 12);
             lcd.set_fontsize(8);
             lcd.printf("Q = ");
-            float q = abs(impedance.im / impedance.real);
+            double q = abs(impedance.im / impedance.real);
             if (q > 1e+2) {
                 lcd.printf("%.1f", q);
             } else if (q > 1e+1) {
@@ -442,7 +442,7 @@ void main_loop()
                 lcd.printf("%5.3f", q);
             }
 
-            float theta_deg = 360.0f / (2 * PI) * atan2(abs(impedance.im), abs(impedance.real));
+            double theta_deg = 360.0 / (2 * PI) * atan2(abs(impedance.im), abs(impedance.real));
             lcd.printf(" %5.2fdeg", theta_deg);
         }
     }
@@ -512,23 +512,23 @@ struct Complex
 calc_fourier(LCR_ID_IV id, int freq)
 {
     double real_sum = 0;
-    float ratio = (id == LCR_ID_V) ? 1 : settings.adc_ratio;
-    float delay = (id == LCR_ID_V) ? 0 : settings.adc_delay_err;
+    double ratio = (id == LCR_ID_V) ? 1 : settings.adc_ratio;
+    double delay = (id == LCR_ID_V) ? 0 : settings.adc_delay_err;
     for (uint32_t i = 0; i < adc_data_buf_len; ++i) {
-        float cos_val = my_fast_cos(2 * PI * freq * (delay + i / (double)adc_sampling_freq));
+        double cos_val = my_fast_cos(2 * M_PI * freq * (delay + i / (double)adc_sampling_freq));
         real_sum += adc_data_buffer[id][i] * cos_val / adc_data_buf_len;
     }
 
     double im_sum = 0;
     for (uint32_t i = 0; i < adc_data_buf_len; ++i) {
-        float sin_val = -my_fast_sin(2 * PI * freq * (delay + i / (double)adc_sampling_freq));
+        double sin_val = -my_fast_sin(2 * M_PI * freq * (delay + i / (double)adc_sampling_freq));
         im_sum += adc_data_buffer[id][i] * sin_val / adc_data_buf_len;
     }
 
     return Complex(ratio * real_sum, ratio * im_sum);
 }
 
-float set_dac_output(int freq, float v_rms)
+double set_dac_output(int freq, double v_rms)
 {
 
     set_dac_bw(freq);
@@ -541,14 +541,14 @@ float set_dac_output(int freq, float v_rms)
         dac_sampling_freq = 5e+6;
     }
 
-    float k = sqrt(1.0f + 2.7e-12 * freq * freq);
+    double k = sqrt(1.0 + 2.7e-12 * freq * freq);
     v_rms *= k;
-    if (v_rms > 1.5f) {
-        v_rms = 1.5f;
+    if (v_rms > 1.5) {
+        v_rms = 1.5;
     }
     for (uint32_t i = 0; i < dac_dma_buf_len; ++i) {
-        float dither = (rand() % 4) - 1.5f;
-        dac_dma_buffer[i] = 2043.0f + 1173.0f * v_rms * my_fast_sin(2 * PI * i * freq / (double)dac_sampling_freq) + dither;
+        double dither = ((rand() % 16384) - 8192) / 2048.0f;
+        dac_dma_buffer[i] = 2043.0 + 1173.0 * v_rms * my_fast_sin(2 * M_PI * i * freq / (double)dac_sampling_freq) + dither;
     }
 
     return v_rms / k;
@@ -559,9 +559,9 @@ bool adc_is_clipping(LCR_ID_IV id, bool strict)
     uint16_t min_val = *std::min_element(adc_data_buffer[id], adc_data_buffer[id] + adc_data_buf_len);
     uint16_t max_val = *std::max_element(adc_data_buffer[id], adc_data_buffer[id] + adc_data_buf_len);
     if (strict) {
-        return min_val < UINT16_MAX * 0.3f || max_val > UINT16_MAX * 0.7f;
+        return min_val < UINT16_MAX * 0.3 || max_val > UINT16_MAX * 0.7;
     } else {
-        return min_val < UINT16_MAX * 0.2f || max_val > UINT16_MAX * 0.8f;
+        return min_val < UINT16_MAX * 0.2 || max_val > UINT16_MAX * 0.8;
     }
 }
 
@@ -582,13 +582,13 @@ void coupling_set_dc(bool cur, bool pot)
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, pot ? GPIO_PIN_SET : GPIO_PIN_RESET);
 }
 
-float read_battery_voltage()
+double read_battery_voltage()
 {
     HAL_ADC_Start(&hadc3);
     HAL_ADC_PollForConversion(&hadc3, 100);
     uint16_t adc_val = HAL_ADC_GetValue(&hadc3);
     HAL_ADC_Stop(&hadc3);
-    return 3.3f * 2.0f / 4.0f * adc_val / 4096.0f;
+    return 3.3 * 2.0 / 4.0 * adc_val / 4096.0;
 }
 
 
@@ -597,7 +597,7 @@ void adc_calibration()
     tia_set_gain(0);
     int freq_id = 9;
     int freq = settings.freq_list[freq_id];
-    set_dac_output(freq, 1.0f);
+    set_dac_output(freq, 1.0);
     tia_set_gain(0);
     pga_set_gain(LCR_ID_V, 0);
     pga_set_gain(LCR_ID_I, 0);
@@ -611,7 +611,7 @@ void adc_calibration()
     Complex voltage = calc_fourier(LCR_ID_V, freq);
     Complex current = calc_fourier(LCR_ID_I, freq);
     Complex ratio = current / voltage;
-    float delay_s = -atan2(ratio.im, ratio.real) / (2 * PI * freq);
+    double delay_s = -atan2(ratio.im, ratio.real) / (2 * M_PI * freq);
     printf("ADC Cal Ratio: %f, Delay %fns, Complex: %f+%fi\n", ratio.abs, delay_s * 1.0e+9, ratio.real, ratio.im);
 }
 
@@ -624,8 +624,8 @@ void pga_calibration()
         int pga_i_gain_id = 0;
         printf("{");
         while (1) {
-            float v_rms = std::min(1.0f / settings.pga_v_gain_table[freq_id][pga_v_gain_id].abs, 1.0f / settings.pga_i_gain_table[freq_id][pga_i_gain_id].abs);
-            set_dac_output(freq, 0.5f * v_rms);
+            double v_rms = std::min(1.0 / settings.pga_v_gain_table[freq_id][pga_v_gain_id].abs, 1.0 / settings.pga_i_gain_table[freq_id][pga_i_gain_id].abs);
+            set_dac_output(freq, 0.5 * v_rms);
             pga_set_gain(LCR_ID_V, pga_v_gain_id);
             pga_set_gain(LCR_ID_I, pga_i_gain_id);
             set_iv_mux_sw(true, false);

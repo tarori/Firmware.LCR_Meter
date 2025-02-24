@@ -9,6 +9,10 @@
 #define ARM_MATH_CM7
 #include "arm_math.h"
 
+#ifndef M_PI
+#define M_PI 3.141592653589793
+#endif
+
 #define FIELD_GET(mask, reg) (((reg) & (mask)) >> (__builtin_ffsll(mask) - 1))
 #define __ALIGN_MASK(x, mask) ((x) & ~(mask))
 #define ALIGN(x, a) __ALIGN_MASK(x, (typeof(x))(a)-1)
@@ -41,14 +45,14 @@ static inline uint32_t dma_get_last_index(ADC_HandleTypeDef* hadc, uint32_t buf_
 
 static inline float my_fast_sin(double x)
 {
-    float in = fmod(x, 2 * PI);
+    float in = fmod(x, 2 * M_PI);
 
     return sinf(in);
 }
 
 static inline float my_fast_cos(double x)
 {
-    float in = fmod(x, 2 * PI);
+    float in = fmod(x, 2 * M_PI);
     return cosf(in);
 }
 
