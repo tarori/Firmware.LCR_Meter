@@ -546,9 +546,25 @@ double set_dac_output(int freq, double v_rms)
     if (v_rms > 1.5) {
         v_rms = 1.5;
     }
+
+    /* Constant dither */
+    /*
     for (uint32_t i = 0; i < dac_dma_buf_len; ++i) {
-        double dither = ((rand() % 16384) - 8192) / 2048.0f;
+        double dither = ((rand() % 16384) - 8192) / 4096.0f;
         dac_dma_buffer[i] = 2043.0 + 1173.0 * v_rms * my_fast_sin(2 * M_PI * i * freq / (double)dac_sampling_freq) + dither;
+    }
+    */
+
+    /* Dither shaping */
+    double dac_error_integ = 0;
+    for (uint32_t i = 0; i < dac_dma_buf_len; ++i) {
+        double dither = ((rand() % 16384) - 8192) / 4096.0f;
+        double dac_code_ideal = 2043.5 + 1173.0 * v_rms * my_fast_sin(2 * M_PI * i * freq / (double)dac_sampling_freq);
+        double dac_code_float = dac_code_ideal + dither - 0.5 * dac_error_integ;
+        uint32_t dac_code = dac_code_float;
+        dac_dma_buffer[i] = dac_code;
+        double dac_error = dac_code - dac_code_ideal;
+        dac_error_integ += dac_error;
     }
 
     return v_rms / k;
