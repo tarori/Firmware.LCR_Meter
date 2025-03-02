@@ -26,8 +26,8 @@ enum LCR_ID_IV {
 };
 
 // DAC
-constexpr uint32_t dac_dma_buf_len = 10000;
-__attribute__((section(".RAM_DMA"))) uint16_t dac_dma_buffer[dac_dma_buf_len];
+constexpr uint32_t dac_dma_buf_len = 5000;
+__attribute__((section(".RAM_DMA"))) uint16_t dac_dma_buffer[2][dac_dma_buf_len];
 double dac_sampling_freq = 5.0e+6;
 
 // ADC
@@ -150,8 +150,8 @@ void main_loop()
 
     hal_state |= HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_dma_buffer[LCR_ID_I], adc_dma_buf_len);
     hal_state |= HAL_ADC_Start_DMA(&hadc2, (uint32_t*)adc_dma_buffer[LCR_ID_V], adc_dma_buf_len);
-    MODIFY_REG(((DMA_Stream_TypeDef*)hadc1.DMA_Handle->Instance)->CR, DMA_IT_TC | DMA_IT_HT, 0);
-    MODIFY_REG(((DMA_Stream_TypeDef*)hadc2.DMA_Handle->Instance)->CR, DMA_IT_TC | DMA_IT_HT, 0);
+    CLEAR_BIT(((DMA_Stream_TypeDef*)hadc1.DMA_Handle->Instance)->CR, DMA_IT_TC | DMA_IT_HT);
+    CLEAR_BIT(((DMA_Stream_TypeDef*)hadc2.DMA_Handle->Instance)->CR, DMA_IT_TC | DMA_IT_HT);
 
     if (hal_state != HAL_OK) {
         printf("ADC initialize error\n");
@@ -161,8 +161,10 @@ void main_loop()
         }
     }
 
-    HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)dac_dma_buffer, dac_dma_buf_len, DAC_ALIGN_12B_R);
-    MODIFY_REG(((DMA_Stream_TypeDef*)hdac1.DMA_Handle1->Instance)->CR, DMA_IT_TC | DMA_IT_HT, 0);
+    HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)dac_dma_buffer[0], dac_dma_buf_len, DAC_ALIGN_12B_R);
+    HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, (uint32_t*)dac_dma_buffer[1], dac_dma_buf_len, DAC_ALIGN_12B_R);
+    CLEAR_BIT(((DMA_Stream_TypeDef*)hdac1.DMA_Handle1->Instance)->CR, DMA_IT_TC | DMA_IT_HT);
+    CLEAR_BIT(((DMA_Stream_TypeDef*)hdac1.DMA_Handle2->Instance)->CR, DMA_IT_TC | DMA_IT_HT);
 
     delay_ms(10);
 
@@ -534,8 +536,8 @@ double set_dac_output(int freq, double v_rms)
     set_dac_bw(freq);
 
     if (freq < 1000) {
-        TIM7->ARR = 600 - 1;
-        dac_sampling_freq = 400e+3;
+        TIM7->ARR = 1200 - 1;
+        dac_sampling_freq = 200e+3;
     } else {
         TIM7->ARR = 48 - 1;
         dac_sampling_freq = 5e+6;
@@ -548,24 +550,28 @@ double set_dac_output(int freq, double v_rms)
     }
 
     /* Constant dither */
-    /*
     for (uint32_t i = 0; i < dac_dma_buf_len; ++i) {
-        double dither = ((rand() % 16384) - 8192) / 4096.0f;
-        dac_dma_buffer[i] = 2043.0 + 1173.0 * v_rms * my_fast_sin(2 * M_PI * i * freq / (double)dac_sampling_freq) + dither;
+        double dither = ((rand() % 16384) - 8192) / 8192.0;
+        double dac_code_ideal = 2043.0 + 1173.0 * v_rms * my_fast_sin(2 * M_PI * i * freq / (double)dac_sampling_freq) + dither;
+        dac_dma_buffer[0][i] = dac_code_ideal;
+        dac_dma_buffer[1][i] = dac_code_ideal + 0.5;
     }
-    */
 
     /* Dither shaping */
+    /*
     double dac_error_integ = 0;
-    for (uint32_t i = 0; i < dac_dma_buf_len; ++i) {
-        double dither = ((rand() % 16384) - 8192) / 4096.0f;
+    for (int32_t i = -1000; i < (int32_t)dac_dma_buf_len; ++i) {
+        double dither = ((rand() % 16384) - 8192) / 8192.0;
         double dac_code_ideal = 2043.5 + 1173.0 * v_rms * my_fast_sin(2 * M_PI * i * freq / (double)dac_sampling_freq);
         double dac_code_float = dac_code_ideal + dither - 0.5 * dac_error_integ;
         uint32_t dac_code = dac_code_float;
-        dac_dma_buffer[i] = dac_code;
         double dac_error = dac_code - dac_code_ideal;
         dac_error_integ += dac_error;
+        if (i >= 0) {
+            dac_dma_buffer[i] = dac_code;
+        }
     }
+    */
 
     return v_rms / k;
 }
