@@ -3,6 +3,7 @@
 #include "dac.h"
 #include "tim.h"
 #include "usart.h"
+#include "rng.h"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -100,6 +101,8 @@ struct Settings {
 
 SMR12864 lcd;
 
+bool initialize_adc();
+bool initialize_dac_tim();
 double set_dac_output(int freq, double v_rms);
 void measure_voltage_current(bool is_short);
 bool adc_is_clipping(LCR_ID_IV id, bool strict);
@@ -112,6 +115,7 @@ void coupling_set_dc(bool cur, bool pot);
 struct Complex calc_fourier(LCR_ID_IV id, int freq);
 void set_dac_bw(int freq);
 void adc_calibration_dump();
+void adc_data_dump();
 void set_backlight(bool state);
 
 void main_loop()
@@ -123,8 +127,7 @@ void main_loop()
     tia_set_gain(0);
     coupling_set_dc(true, true);
     delay_ms(100);
-
-    // adc_calibration_dump();
+    set_backlight(false);
 
     lcd.reset();
     delay_ms(200);
@@ -137,46 +140,7 @@ void main_loop()
     lcd.set_fontsize(32);
     lcd.printf("Piyo");
 
-    delay_ms(10);
-    int hal_state = HAL_OK;
-    // hal_state |= HAL_ADCEx_LinearCalibration_SetValue(&hadc1, settings.adc1_linearity_cal);
-    // hal_state |= HAL_ADCEx_LinearCalibration_SetValue(&hadc2, settings.adc2_linearity_cal);
-    hal_state |= HAL_ADCEx_LinearCalibration_FactorLoad(&hadc1);
-    hal_state |= HAL_ADCEx_LinearCalibration_FactorLoad(&hadc2);
-    // hal_state |= HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET_LINEARITY, ADC_DIFFERENTIAL_ENDED);
-    // hal_state |= HAL_ADCEx_Calibration_Start(&hadc2, ADC_CALIB_OFFSET_LINEARITY, ADC_DIFFERENTIAL_ENDED);
-    hal_state |= HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET, ADC_DIFFERENTIAL_ENDED);
-    hal_state |= HAL_ADCEx_Calibration_Start(&hadc2, ADC_CALIB_OFFSET, ADC_DIFFERENTIAL_ENDED);
-    hal_state |= HAL_ADCEx_Calibration_Start(&hadc3, ADC_CALIB_OFFSET, ADC_SINGLE_ENDED);
-
-    /* Initialize DMA */
-    hal_state |= HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_dma_buffer[LCR_ID_I], adc_dma_buf_len);
-    hal_state |= HAL_ADC_Start_DMA(&hadc2, (uint32_t*)adc_dma_buffer[LCR_ID_V], adc_dma_buf_len);
-    CLEAR_BIT(((DMA_Stream_TypeDef*)hadc1.DMA_Handle->Instance)->CR, DMA_IT_TC | DMA_IT_HT);
-    CLEAR_BIT(((DMA_Stream_TypeDef*)hadc2.DMA_Handle->Instance)->CR, DMA_IT_TC | DMA_IT_HT);
-
-    /* Stop DMA and ADC*/
-    CLEAR_BIT(((DMA_Stream_TypeDef*)hadc1.DMA_Handle->Instance)->CR, DMA_SxCR_EN);
-    CLEAR_BIT(((DMA_Stream_TypeDef*)hadc2.DMA_Handle->Instance)->CR, DMA_SxCR_EN);
-
-    SET_BIT(hadc1.Instance->CR, ADC_CR_ADSTP);
-    while (READ_BIT(hadc1.Instance->CR, ADC_CR_ADSTP)) {
-    }
-    SET_BIT(hadc2.Instance->CR, ADC_CR_ADSTP);
-    while (READ_BIT(hadc2.Instance->CR, ADC_CR_ADSTP)) {
-    }
-
-    /* Configure ADC synchronization */
-    SET_BIT(ADC12_COMMON->CCR, ADC_DUALMODE_REGSIMULT);
-
-    /* Restart DMA and ADC */
-    ((DMA_Stream_TypeDef*)hadc1.DMA_Handle->Instance)->NDTR = adc_dma_buf_len;
-    ((DMA_Stream_TypeDef*)hadc2.DMA_Handle->Instance)->NDTR = adc_dma_buf_len;
-    SET_BIT(((DMA_Stream_TypeDef*)hadc1.DMA_Handle->Instance)->CR, DMA_SxCR_EN);
-    SET_BIT(((DMA_Stream_TypeDef*)hadc2.DMA_Handle->Instance)->CR, DMA_SxCR_EN);
-    SET_BIT(hadc1.Instance->CR, ADC_CR_ADSTART);
-
-    if (hal_state != HAL_OK) {
+    if (initialize_adc()) {
         printf("ADC initialize error\n");
         lcd.cls();
         lcd.printf("ADC initialize error");
@@ -184,32 +148,25 @@ void main_loop()
         }
     }
 
-    HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)dac_dma_buffer[0], dac_dma_buf_len, DAC_ALIGN_12B_R);
-    HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, (uint32_t*)dac_dma_buffer[1], dac_dma_buf_len, DAC_ALIGN_12B_R);
-    CLEAR_BIT(((DMA_Stream_TypeDef*)hdac1.DMA_Handle1->Instance)->CR, DMA_IT_TC | DMA_IT_HT);
-    CLEAR_BIT(((DMA_Stream_TypeDef*)hdac1.DMA_Handle2->Instance)->CR, DMA_IT_TC | DMA_IT_HT);
-
-    delay_ms(10);
-
-    HAL_TIM_Base_Start(&htim15);                     // TIM for ADC
-    HAL_TIM_Base_Start(&htim7);                      // TIM for DAC
-    HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);  // Encoder 1
-    HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);  // Encoder 2
-    TIM3->CNT = INT16_MAX;
-    TIM4->CNT = INT16_MAX;
-
-    set_backlight(false);
+    if (initialize_dac_tim()) {
+        printf("DAC initialize error\n");
+        lcd.cls();
+        lcd.printf("DAC initialize error");
+        while (1) {
+        }
+    }
 
     int freq = 0;
     int freq_id = 9;  // 100kHz Default
     bool dac_changed = true;
+    bool dc_couple = true;
     TIM4->CNT -= 4 * ((TIM4->CNT / 4 - freq_id) % freq_list_length);
     double v_rms = 1.0;
     TIM3->CNT = INT16_MAX + 4 * (v_rms / 0.1);
-    bool dc_couple = true;
 
     init_done = true;
     while (1) {
+        /* Signal source setup */
         int freq_id_new = (TIM4->CNT / 4) % freq_list_length;
         if (freq_id != freq_id_new) {
             dac_changed = true;
@@ -241,6 +198,7 @@ void main_loop()
             // delay_ms(5000);
         }
 
+        /* Auto ranging */
         int tia_gain_id = tia_list_length - 1;
         int pga_v_gain_id = 0;
         int pga_i_gain_id = 0;
@@ -289,33 +247,42 @@ void main_loop()
             }
         }
 
-        Complex voltage;
-        Complex current;
+        // adc_data_dump();
 
-        int measurement_cycle = 1;
-        Complex impedance_list[measurement_cycle];
+        /* Real measurement */
+        measure_voltage_current(false);
+        Complex voltage = calc_fourier(LCR_ID_V, freq);
+        Complex current = calc_fourier(LCR_ID_I, freq);
 
-        for (int i = 0; i < measurement_cycle; ++i) {
-            measure_voltage_current(false);
-            voltage = calc_fourier(LCR_ID_V, freq);
-            current = calc_fourier(LCR_ID_I, freq);
+        Complex tia_conductance = Complex{1 / settings.tia_res_table[tia_gain_id], 2 * (double)PI * freq * settings.tia_cap_table[tia_gain_id]};
 
-            Complex tia_conductance = Complex{1 / settings.tia_res_table[tia_gain_id], 2 * (double)PI * freq * settings.tia_cap_table[tia_gain_id]};
+        voltage = voltage / settings.pga_v_gain_table[freq_id][pga_v_gain_id];
+        current = (current * tia_conductance) / settings.pga_i_gain_table[freq_id][pga_i_gain_id];
+        Complex impedance = voltage / current;
 
-            current = current * tia_conductance;
-
-            voltage = voltage / settings.pga_v_gain_table[freq_id][pga_v_gain_id];
-            current = current / settings.pga_i_gain_table[freq_id][pga_i_gain_id];
-
-            impedance_list[i] = voltage / current;
+        /* Probe compensation */
+        double omega = 2 * M_PI * freq;
+        if (button3_pushed) {
+            button3_pushed = false;
+            if (impedance.abs < 10.0) {
+                // Short Compensation
+                double inductance = impedance.im / omega;
+                double resistance = impedance.real;
+                settings.short_inductance = inductance;
+                settings.short_resistance = resistance;
+            } else if (impedance.abs > 10000.0) {
+                // Open Compensation
+                Complex conductance = Complex(1.0) / impedance;
+                double capacitance = conductance.im / omega;
+                double resistance = 1.0 / conductance.real;
+                settings.open_capacitance = capacitance;
+                settings.open_resistance = resistance;
+            } else {
+                // Error
+            }
         }
 
-        Complex impedance = mid(impedance_list, measurement_cycle);
-
-        printf("V: %.4f, I: %4f, Z: %4f, TIA: %d, PGA: %d, %d\n", voltage.abs, current.abs, impedance.abs, tia_gain_id, pga_v_gain_id, pga_i_gain_id);
-
-        double omega = 2 * M_PI * freq;
-
+        /* Calculation*/
         impedance = impedance - Complex(settings.short_resistance, omega * settings.short_inductance);
         Complex conductance = Complex(1.0) / impedance;
         conductance = conductance - Complex(1.0 / settings.open_resistance, omega * settings.open_capacitance);
@@ -335,22 +302,6 @@ void main_loop()
         double resistance = sp_mode ? impedance.real : 1.0 / conductance.real;
         double inductance = sp_mode ? impedance.im / omega : -1.0 / conductance.im / omega;
         double capacitance = sp_mode ? -1.0 / (impedance.im * omega) : conductance.im / omega;
-
-
-        if (button3_pushed) {
-            button3_pushed = false;
-            if (impedance.abs < 10.0 && sp_mode == true) {
-                // Short Compensation
-                settings.short_inductance = settings.short_inductance + inductance;
-                settings.short_resistance = settings.short_resistance + resistance;
-            }
-
-            if (impedance.abs > 10000.0 && sp_mode == false) {
-                // Open Compensation
-                settings.open_capacitance = settings.open_capacitance + capacitance;
-                settings.open_resistance = settings.open_resistance + resistance;
-            }
-        }
 
         if (abs(capacitance) > 1.0e-8) {
             printf("R: %.4fOhm, L: %.4fuH, C: %.4fuF, Z: %.4fOhm, BAT: %.3fV\n", resistance, inductance * 1.0e+6, capacitance * 1.0e+6, impedance.abs, battery_voltage);
@@ -492,6 +443,69 @@ void measure_voltage_current(bool is_short)
     }
 }
 
+bool initialize_adc()
+{
+    int hal_state = HAL_OK;
+    // hal_state |= HAL_ADCEx_LinearCalibration_SetValue(&hadc1, settings.adc1_linearity_cal);
+    // hal_state |= HAL_ADCEx_LinearCalibration_SetValue(&hadc2, settings.adc2_linearity_cal);
+    hal_state |= HAL_ADCEx_LinearCalibration_FactorLoad(&hadc1);
+    hal_state |= HAL_ADCEx_LinearCalibration_FactorLoad(&hadc2);
+    // hal_state |= HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET_LINEARITY, ADC_DIFFERENTIAL_ENDED);
+    // hal_state |= HAL_ADCEx_Calibration_Start(&hadc2, ADC_CALIB_OFFSET_LINEARITY, ADC_DIFFERENTIAL_ENDED);
+    hal_state |= HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET, ADC_DIFFERENTIAL_ENDED);
+    hal_state |= HAL_ADCEx_Calibration_Start(&hadc2, ADC_CALIB_OFFSET, ADC_DIFFERENTIAL_ENDED);
+    hal_state |= HAL_ADCEx_Calibration_Start(&hadc3, ADC_CALIB_OFFSET, ADC_SINGLE_ENDED);
+
+    /* Initialize DMA */
+    hal_state |= HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_dma_buffer[LCR_ID_I], adc_dma_buf_len);
+    hal_state |= HAL_ADC_Start_DMA(&hadc2, (uint32_t*)adc_dma_buffer[LCR_ID_V], adc_dma_buf_len);
+    CLEAR_BIT(((DMA_Stream_TypeDef*)hadc1.DMA_Handle->Instance)->CR, DMA_IT_TC | DMA_IT_HT);
+    CLEAR_BIT(((DMA_Stream_TypeDef*)hadc2.DMA_Handle->Instance)->CR, DMA_IT_TC | DMA_IT_HT);
+
+    /* Stop DMA and ADC*/
+    CLEAR_BIT(((DMA_Stream_TypeDef*)hadc1.DMA_Handle->Instance)->CR, DMA_SxCR_EN);
+    CLEAR_BIT(((DMA_Stream_TypeDef*)hadc2.DMA_Handle->Instance)->CR, DMA_SxCR_EN);
+
+    SET_BIT(hadc1.Instance->CR, ADC_CR_ADSTP);
+    while (READ_BIT(hadc1.Instance->CR, ADC_CR_ADSTP)) {
+    }
+    SET_BIT(hadc2.Instance->CR, ADC_CR_ADSTP);
+    while (READ_BIT(hadc2.Instance->CR, ADC_CR_ADSTP)) {
+    }
+
+    /* Configure ADC synchronization */
+    SET_BIT(ADC12_COMMON->CCR, ADC_DUALMODE_REGSIMULT);
+
+    /* Restart DMA and ADC */
+    ((DMA_Stream_TypeDef*)hadc1.DMA_Handle->Instance)->NDTR = adc_dma_buf_len;
+    ((DMA_Stream_TypeDef*)hadc2.DMA_Handle->Instance)->NDTR = adc_dma_buf_len;
+    SET_BIT(((DMA_Stream_TypeDef*)hadc1.DMA_Handle->Instance)->CR, DMA_SxCR_EN);
+    SET_BIT(((DMA_Stream_TypeDef*)hadc2.DMA_Handle->Instance)->CR, DMA_SxCR_EN);
+    SET_BIT(hadc1.Instance->CR, ADC_CR_ADSTART);
+
+    return hal_state != HAL_OK;
+}
+
+bool initialize_dac_tim()
+{
+    int hal_state = HAL_OK;
+    hal_state |= HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)dac_dma_buffer[0], dac_dma_buf_len, DAC_ALIGN_12B_R);
+    hal_state |= HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, (uint32_t*)dac_dma_buffer[1], dac_dma_buf_len, DAC_ALIGN_12B_R);
+    CLEAR_BIT(((DMA_Stream_TypeDef*)hdac1.DMA_Handle1->Instance)->CR, DMA_IT_TC | DMA_IT_HT);
+    CLEAR_BIT(((DMA_Stream_TypeDef*)hdac1.DMA_Handle2->Instance)->CR, DMA_IT_TC | DMA_IT_HT);
+
+    delay_ms(10);
+
+    hal_state |= HAL_TIM_Base_Start(&htim15);                     // TIM for ADC
+    hal_state |= HAL_TIM_Base_Start(&htim7);                      // TIM for DAC
+    hal_state |= HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);  // Encoder 1
+    hal_state |= HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);  // Encoder 2
+    TIM3->CNT = INT16_MAX;
+    TIM4->CNT = INT16_MAX;
+
+    return hal_state != HAL_OK;
+}
+
 void adc_calibration_dump()
 {
     // LL_ADC_SetCommonClock(__LL_ADC_COMMON_INSTANCE(hadc1.Instance), ADC_CLOCK_ASYNC_DIV4);
@@ -548,9 +562,13 @@ double set_dac_output(int freq, double v_rms)
         v_rms = 1.5;
     }
 
+    uint32_t rand_seed = 0;
+    HAL_RNG_GenerateRandomNumber(&hrng, &rand_seed);
+    srand(rand_seed);
+
     /* Constant dither */
     for (uint32_t i = 0; i < dac_dma_buf_len; ++i) {
-        double dither = ((rand() % 16384) - 8192) / 8192.0;
+        double dither = ((rand() % 16384) - 8192) / 16384.0;
         double dac_code_ideal = 2043.0 + 1173.0 * v_rms * my_fast_sin(2 * M_PI * i * freq / (double)dac_sampling_freq) + dither;
         dac_dma_buffer[0][i] = dac_code_ideal;
         dac_dma_buffer[1][i] = dac_code_ideal + 0.5;
@@ -567,7 +585,7 @@ double set_dac_output(int freq, double v_rms)
         double dac_error = dac_code - dac_code_ideal;
         dac_error_integ += dac_error;
         if (i >= 0) {
-            dac_dma_buffer[i] = dac_code;
+            dac_dma_buffer[0][i] = dac_code;
         }
     }
     */
@@ -761,6 +779,16 @@ void pga_calibration_new()
         printf("},\n");
     }
     printf("PGA Calibration Done!\n");
+}
+
+void adc_data_dump()
+{
+    measure_voltage_current(false);
+    for (uint32_t i = 0; i < adc_data_buf_len; ++i) {
+        printf("%d, %d\n", adc_data_buffer[LCR_ID_I][i], adc_data_buffer[LCR_ID_V][i]);
+    }
+    while (1) {
+    }
 }
 
 void pga_set_gain(LCR_ID_IV id, int gain_id)

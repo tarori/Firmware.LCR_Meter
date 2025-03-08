@@ -22,6 +22,7 @@
 #include "dac.h"
 #include "dma.h"
 #include "memorymap.h"
+#include "rng.h"
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
@@ -118,6 +119,7 @@ int main(void)
     MX_UART8_Init();
     MX_TIM15_Init();
     MX_TIM7_Init();
+    MX_RNG_Init();
     /* USER CODE BEGIN 2 */
 
     /* USER CODE END 2 */
@@ -163,7 +165,7 @@ void SystemClock_Config(void)
     RCC_OscInitStruct.PLL.PLLM = 1;
     RCC_OscInitStruct.PLL.PLLN = 40;
     RCC_OscInitStruct.PLL.PLLP = 1;
-    RCC_OscInitStruct.PLL.PLLQ = 2;
+    RCC_OscInitStruct.PLL.PLLQ = 20;
     RCC_OscInitStruct.PLL.PLLR = 2;
     RCC_OscInitStruct.PLL.PLLRGE = RCC_PLL1VCIRANGE_3;
     RCC_OscInitStruct.PLL.PLLVCOSEL = RCC_PLL1VCOWIDE;
