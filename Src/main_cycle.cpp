@@ -19,7 +19,7 @@
 volatile bool init_done = false;
 volatile bool button1_pushed = false;
 volatile bool button2_pushed = false;
-volatile bool button3_pushed = true;
+volatile bool button3_pushed = false;
 
 enum LCR_ID_IV {
     LCR_ID_I = 0,
@@ -46,6 +46,7 @@ bool read_button3()
 constexpr int freq_list_length = 13;
 constexpr int pga_list_length = 4;
 constexpr int tia_list_length = 4;
+constexpr int dac_resolution = 12;
 
 struct Settings {
     int freq_list[freq_list_length] = {40, 120, 400, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, 1000000};
@@ -62,41 +63,41 @@ struct Settings {
 
     Complex pga_v_gain_table[freq_list_length][pga_list_length] = {
         // 1, 4.75, 17.944, 53.833
-        {{1.0000, 0.0000}, {4.7474, 0.0001}, {17.9108, 0.0033}, {53.7776, 0.0289}},
-        {{1.0000, 0.0000}, {4.7475, -0.0001}, {17.9145, 0.0005}, {53.7983, 0.0096}},
-        {{1.0000, 0.0000}, {4.7475, -0.0000}, {17.9148, -0.0014}, {53.8045, -0.0064}},
-        {{1.0000, 0.0000}, {4.7474, -0.0002}, {17.9132, -0.0035}, {53.7945, -0.0338}},
-        {{1.0000, 0.0000}, {4.7475, -0.0005}, {17.9141, -0.0081}, {53.8097, -0.0707}},
-        {{1.0000, 0.0000}, {4.7475, -0.0013}, {17.9141, -0.0193}, {53.8065, -0.1767}},
-        {{1.0000, 0.0000}, {4.7474, -0.0026}, {17.9134, -0.0393}, {53.8035, -0.3428}},
-        {{1.0000, 0.0000}, {4.7475, -0.0054}, {17.9118, -0.0786}, {53.7713, -0.6595}},
-        {{1.0000, 0.0000}, {4.7474, -0.0131}, {17.9102, -0.1972}, {53.7157, -1.6623}},
-        {{1.0000, 0.0000}, {4.7472, -0.0263}, {17.9063, -0.3903}, {53.6282, -3.2888}},
-        {{1.0000, 0.0000}, {4.7474, -0.0527}, {17.8812, -0.7962}, {53.1584, -6.8398}},
-        {{0.9999, 0.0000}, {4.7430, -0.1307}, {17.6975, -1.9468}, {49.3114, -15.1200}},
-        {{0.9995, 0.0000}, {4.7295, -0.2612}, {17.1298, -3.7096}, {39.0496, -24.3760}}};
+        {{1.0000, 0.0000}, {4.7445, -0.0000}, {17.9052, -0.0001}, {53.6300, -0.0008}},
+        {{1.0000, -0.0000}, {4.7447, -0.0001}, {17.9062, -0.0005}, {53.6372, -0.0069}},
+        {{1.0000, -0.0000}, {4.7445, -0.0001}, {17.9059, -0.0013}, {53.6327, -0.0105}},
+        {{1.0000, -0.0000}, {4.7448, -0.0003}, {17.9067, -0.0042}, {53.6360, -0.0325}},
+        {{1.0000, 0.0000}, {4.7447, -0.0005}, {17.9064, -0.0080}, {53.6353, -0.0666}},
+        {{1.0000, -0.0000}, {4.7447, -0.0013}, {17.9063, -0.0195}, {53.6325, -0.1665}},
+        {{1.0000, 0.0000}, {4.7447, -0.0027}, {17.9060, -0.0397}, {53.6282, -0.3314}},
+        {{1.0000, -0.0000}, {4.7445, -0.0054}, {17.9061, -0.0791}, {53.6343, -0.6736}},
+        {{1.0000, 0.0000}, {4.7443, -0.0133}, {17.9007, -0.1967}, {53.5639, -1.6839}},
+        {{1.0000, 0.0000}, {4.7441, -0.0267}, {17.8960, -0.3950}, {53.4015, -3.3440}},
+        {{1.0000, 0.0000}, {4.7438, -0.0528}, {17.8687, -0.7854}, {52.6742, -6.7250}},
+        {{1.0000, -0.0000}, {4.7405, -0.1324}, {17.6872, -1.9476}, {49.0513, -15.2087}},
+        {{1.0000, -0.0000}, {4.7273, -0.2640}, {17.0434, -3.7566}, {38.5681, -23.7954}}};
 
     Complex pga_i_gain_table[freq_list_length][pga_list_length] = {
         // 1, 4.75, 17.944, 53.833
-        {{1.0000, 0.0000}, {4.7490, 0.0001}, {17.9269, 0.0024}, {53.7743, 0.0381}},
-        {{1.0000, 0.0000}, {4.7490, 0.0001}, {17.9280, 0.0009}, {53.7881, 0.0132}},
-        {{1.0000, 0.0000}, {4.7491, -0.0001}, {17.9284, -0.0006}, {53.7922, -0.0058}},
-        {{1.0000, 0.0000}, {4.7492, -0.0002}, {17.9291, -0.0025}, {53.7930, -0.0192}},
-        {{1.0000, 0.0000}, {4.7491, -0.0004}, {17.9293, -0.0067}, {53.7963, -0.0531}},
-        {{1.0000, 0.0000}, {4.7491, -0.0012}, {17.9301, -0.0189}, {53.8021, -0.1573}},
-        {{1.0000, 0.0000}, {4.7491, -0.0025}, {17.9308, -0.0382}, {53.8092, -0.3155}},
-        {{1.0000, 0.0000}, {4.7490, -0.0052}, {17.9308, -0.0767}, {53.8085, -0.6546}},
-        {{1.0000, 0.0000}, {4.7491, -0.0132}, {17.9295, -0.1916}, {53.7920, -1.5704}},
-        {{1.0000, 0.0000}, {4.7491, -0.0264}, {17.9233, -0.3864}, {53.6334, -3.2511}},
-        {{1.0000, 0.0000}, {4.7487, -0.0520}, {17.9023, -0.7639}, {52.8879, -6.4359}},
-        {{1.0000, 0.0000}, {4.7453, -0.1311}, {17.7157, -1.8983}, {49.1967, -15.2804}},
-        {{1.0000, 0.0000}, {4.7344, -0.2618}, {17.0819, -3.6977}, {39.1677, -23.4002}}};
+        {{1.0000, 0.0000}, {4.7411, 0.0001}, {17.8964, 0.0002}, {53.6638, -0.0019}},
+        {{1.0000, 0.0000}, {4.7411, -0.0000}, {17.8966, -0.0006}, {53.6652, -0.0047}},
+        {{1.0000, 0.0000}, {4.7411, -0.0001}, {17.8966, -0.0013}, {53.6661, -0.0126}},
+        {{1.0000, 0.0000}, {4.7411, -0.0002}, {17.8962, -0.0038}, {53.6645, -0.0318}},
+        {{1.0000, -0.0000}, {4.7411, -0.0006}, {17.8962, -0.0079}, {53.6666, -0.0654}},
+        {{1.0000, -0.0000}, {4.7411, -0.0013}, {17.8958, -0.0188}, {53.6637, -0.1617}},
+        {{1.0000, -0.0000}, {4.7421, -0.0022}, {17.9016, -0.0370}, {53.6786, -0.3216}},
+        {{1.0000, -0.0000}, {4.7415, -0.0048}, {17.8961, -0.0757}, {53.6621, -0.6484}},
+        {{1.0000, 0.0000}, {4.7416, -0.0128}, {17.8947, -0.1925}, {53.6218, -1.6341}},
+        {{1.0000, 0.0000}, {4.7407, -0.0252}, {17.8870, -0.3833}, {53.4605, -3.2568}},
+        {{1.0000, -0.0000}, {4.7415, -0.0516}, {17.8655, -0.7724}, {52.8805, -6.4557}},
+        {{1.0000, -0.0000}, {4.7367, -0.1283}, {17.6818, -1.9083}, {49.0570, -14.9982}},
+        {{1.0000, -0.0000}, {4.7228, -0.2555}, {17.0647, -3.6855}, {38.9816, -23.8292}}};
 
     double tia_res_table[tia_list_length] = {20, 100, 1000, 20000};
     double tia_cap_table[tia_list_length] = {-50e-12, 11.5e-12, 10.2e-12, 1.4e-12};
 
-    uint32_t adc1_linearity_cal[ADC_LINEAR_CALIB_REG_COUNT] = {0x20080e02, 0x20080600, 0x2007fdfe, 0x200805ff, 0x20181200, 0x01ff};
-    uint32_t adc2_linearity_cal[ADC_LINEAR_CALIB_REG_COUNT] = {0x2017fdff, 0x20380200, 0x1ff809fd, 0x1ff80601, 0x201811ff, 0x01fd};
+    uint32_t adc1_linearity_cal[ADC_LINEAR_CALIB_REG_COUNT] = {0x20080e02, 0x20080200, 0x2007f9fe, 0x200805ff, 0x20181200, 0x01ff};
+    uint32_t adc2_linearity_cal[ADC_LINEAR_CALIB_REG_COUNT] = {0x2017fe00, 0x2027fe00, 0x200809fe, 0x1fe80600, 0x200811ff, 0x01fe};
 } settings;
 
 SMR12864 lcd;
@@ -108,7 +109,9 @@ void measure_voltage_current(bool is_short);
 bool adc_is_clipping(LCR_ID_IV id, bool strict);
 double read_battery_voltage();
 void pga_calibration();
+void pga_calibration_new();
 void adc_calibration();
+void dac_calibration();
 void pga_set_gain(LCR_ID_IV id, int gain_id);
 void tia_set_gain(int gain_id);
 void coupling_set_dc(bool cur, bool pot);
@@ -144,16 +147,14 @@ void main_loop()
         printf("ADC initialize error\n");
         lcd.cls();
         lcd.printf("ADC initialize error");
-        while (1) {
-        }
+        while (1);
     }
 
     if (initialize_dac_tim()) {
         printf("DAC initialize error\n");
         lcd.cls();
         lcd.printf("DAC initialize error");
-        while (1) {
-        }
+        while (1);
     }
 
     int freq = 0;
@@ -194,8 +195,9 @@ void main_loop()
 
         while (0) {
             // adc_calibration();
-            pga_calibration();
-            // delay_ms(5000);
+            dac_calibration();
+            // pga_calibration_new();
+            delay_ms(5000);
         }
 
         /* Auto ranging */
@@ -304,9 +306,11 @@ void main_loop()
         double capacitance = sp_mode ? -1.0 / (impedance.im * omega) : conductance.im / omega;
 
         if (abs(capacitance) > 1.0e-8) {
-            printf("R: %.4fOhm, L: %.4fuH, C: %.4fuF, Z: %.4fOhm, BAT: %.3fV\n", resistance, inductance * 1.0e+6, capacitance * 1.0e+6, impedance.abs, battery_voltage);
+            printf("R: %.4fOhm, L: %.4fuH, C: %.4fuF, Z: %.4fOhm, BAT: %.3fV\n",
+                resistance, inductance * 1.0e+6, capacitance * 1.0e+6, impedance.abs, battery_voltage);
         } else {
-            printf("R: %.4fOhm, L: %.4fuH, C: %.4fpF, Z: %.4fOhm, BAT: %.3fV\n", resistance, inductance * 1.0e+6, capacitance * 1.0e+12, impedance.abs, battery_voltage);
+            printf("R: %.4fOhm, L: %.4fuH, C: %.5fpF, Z: %.4fOhm, BAT: %.3fV\n",
+                resistance, inductance * 1.0e+6, capacitance * 1.0e+12, impedance.abs, battery_voltage);
         }
 
         lcd.cls();
@@ -446,15 +450,17 @@ void measure_voltage_current(bool is_short)
 bool initialize_adc()
 {
     int hal_state = HAL_OK;
-    // hal_state |= HAL_ADCEx_LinearCalibration_SetValue(&hadc1, settings.adc1_linearity_cal);
-    // hal_state |= HAL_ADCEx_LinearCalibration_SetValue(&hadc2, settings.adc2_linearity_cal);
-    hal_state |= HAL_ADCEx_LinearCalibration_FactorLoad(&hadc1);
-    hal_state |= HAL_ADCEx_LinearCalibration_FactorLoad(&hadc2);
+    hal_state |= HAL_ADCEx_LinearCalibration_SetValue(&hadc1, settings.adc1_linearity_cal);
+    hal_state |= HAL_ADCEx_LinearCalibration_SetValue(&hadc2, settings.adc2_linearity_cal);
+    // hal_state |= HAL_ADCEx_LinearCalibration_FactorLoad(&hadc1);
+    // hal_state |= HAL_ADCEx_LinearCalibration_FactorLoad(&hadc2);
     // hal_state |= HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET_LINEARITY, ADC_DIFFERENTIAL_ENDED);
     // hal_state |= HAL_ADCEx_Calibration_Start(&hadc2, ADC_CALIB_OFFSET_LINEARITY, ADC_DIFFERENTIAL_ENDED);
     hal_state |= HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET, ADC_DIFFERENTIAL_ENDED);
     hal_state |= HAL_ADCEx_Calibration_Start(&hadc2, ADC_CALIB_OFFSET, ADC_DIFFERENTIAL_ENDED);
     hal_state |= HAL_ADCEx_Calibration_Start(&hadc3, ADC_CALIB_OFFSET, ADC_SINGLE_ENDED);
+
+    // adc_calibration_dump();
 
     /* Initialize DMA */
     hal_state |= HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_dma_buffer[LCR_ID_I], adc_dma_buf_len);
@@ -467,11 +473,9 @@ bool initialize_adc()
     CLEAR_BIT(((DMA_Stream_TypeDef*)hadc2.DMA_Handle->Instance)->CR, DMA_SxCR_EN);
 
     SET_BIT(hadc1.Instance->CR, ADC_CR_ADSTP);
-    while (READ_BIT(hadc1.Instance->CR, ADC_CR_ADSTP)) {
-    }
+    while (READ_BIT(hadc1.Instance->CR, ADC_CR_ADSTP));
     SET_BIT(hadc2.Instance->CR, ADC_CR_ADSTP);
-    while (READ_BIT(hadc2.Instance->CR, ADC_CR_ADSTP)) {
-    }
+    while (READ_BIT(hadc2.Instance->CR, ADC_CR_ADSTP));
 
     /* Configure ADC synchronization */
     SET_BIT(ADC12_COMMON->CCR, ADC_DUALMODE_REGSIMULT);
@@ -520,8 +524,7 @@ void adc_calibration_dump()
     HAL_ADCEx_LinearCalibration_GetValue(&hadc2, cal_data);
     printf("ADC2: {0x%04lx, 0x%04lx, 0x%04lx, 0x%04lx, 0x%04lx, 0x%04lx}\n",
         cal_data[0], cal_data[1], cal_data[2], cal_data[3], cal_data[4], cal_data[5]);
-    while (1) {
-    }
+    while (1);
 }
 
 struct Complex
@@ -566,13 +569,22 @@ double set_dac_output(int freq, double v_rms)
     HAL_RNG_GenerateRandomNumber(&hrng, &rand_seed);
     srand(rand_seed);
 
+    /* No dither */
+    for (uint32_t i = 0; i < dac_dma_buf_len; ++i) {
+        double dac_code_ideal = 2043.0 + 1173.0 * v_rms * my_fast_sin(2 * M_PI * i * freq / (double)dac_sampling_freq);
+        dac_dma_buffer[0][i] = dac_code_ideal;
+        // dac_dma_buffer[1][i] = dac_code_ideal + 0.5;
+    }
+
     /* Constant dither */
+    /*
     for (uint32_t i = 0; i < dac_dma_buf_len; ++i) {
         double dither = ((rand() % 16384) - 8192) / 16384.0;
         double dac_code_ideal = 2043.0 + 1173.0 * v_rms * my_fast_sin(2 * M_PI * i * freq / (double)dac_sampling_freq) + dither;
         dac_dma_buffer[0][i] = dac_code_ideal;
         dac_dma_buffer[1][i] = dac_code_ideal + 0.5;
     }
+    */
 
     /* Dither shaping */
     /*
@@ -653,6 +665,45 @@ void adc_calibration()
     printf("ADC Cal Ratio: %f, Delay %fns, Complex: %f+%fi\n", ratio.abs, delay_s * 1.0e+9, ratio.real, ratio.im);
 }
 
+void dac_calibration()
+{
+    tia_set_gain(0);
+    int freq_id = 4;  // 1kHz
+    int freq = settings.freq_list[freq_id];
+    set_dac_output(freq, 1.5);
+    tia_set_gain(0);
+    pga_set_gain(LCR_ID_V, 0);
+    pga_set_gain(LCR_ID_I, 0);
+    set_iv_mux_sw(true, false);
+    delay_ms(100);
+
+    measure_voltage_current(false);
+    if (adc_is_clipping(LCR_ID_I, false) || adc_is_clipping(LCR_ID_V, false)) {
+        printf("Warn: ADC is clipping\n");
+    }
+
+    adc_data_dump();
+
+    // Calculate distortion
+    for (int dist_order = 1; dist_order <= 5; dist_order++) {
+        double real_avg = 0;
+        for (uint32_t i = 0; i < adc_data_buf_len; ++i) {
+            double cos_val = my_fast_cos(2 * M_PI * dist_order * freq * i / (double)adc_sampling_freq);
+            real_avg += adc_data_buffer[LCR_ID_V][i] * cos_val / adc_data_buf_len;
+        }
+
+        double im_avg = 0;
+        for (uint32_t i = 0; i < adc_data_buf_len; ++i) {
+            double sin_val = -my_fast_sin(2 * M_PI * dist_order * freq * i / (double)adc_sampling_freq);
+            im_avg += adc_data_buffer[LCR_ID_V][i] * sin_val / adc_data_buf_len;
+        }
+
+        double abs_avg = sqrt(real_avg * real_avg + im_avg * im_avg);
+
+        printf("%drd distortion: %.2f [%.2f, %.2f]\n", dist_order, abs_avg, real_avg, im_avg);
+    }
+}
+
 void pga_calibration()
 {
     tia_set_gain(0);
@@ -714,8 +765,8 @@ void pga_calibration()
 void pga_calibration_new()
 {
     printf("Insert 1kOhm resistor\n");
-    tia_set_gain(2);
     bool is_target_v = true;
+    set_iv_mux_sw(false, false);
     Complex ratio_list[pga_list_length];
     for (int freq_id = 0; freq_id < freq_list_length; ++freq_id) {
         int freq = settings.freq_list[freq_id];
@@ -725,10 +776,12 @@ void pga_calibration_new()
         for (int target_gain_id = 0; target_gain_id < pga_list_length; ++target_gain_id) {
             if (is_target_v) {
                 pga_v_gain_id = target_gain_id;
-                pga_i_gain_id = 2;
+                pga_i_gain_id = 1;
+                tia_set_gain(2);
             } else {
                 pga_i_gain_id = target_gain_id;
-                pga_v_gain_id = 2;
+                pga_v_gain_id = 0;
+                tia_set_gain(1);
             }
 
             pga_set_gain(LCR_ID_V, pga_v_gain_id);
@@ -738,9 +791,9 @@ void pga_calibration_new()
             while (1) {
                 set_dac_output(freq, v_rms);
                 measure_voltage_current(false);
-                if (adc_is_clipping(LCR_ID_I, false)
-                    || adc_is_clipping(LCR_ID_V, false)) {
-                    v_rms *= 0.8;
+                if (adc_is_clipping(LCR_ID_I, true)
+                    || adc_is_clipping(LCR_ID_V, true)) {
+                    v_rms *= 0.9;
                 } else {
                     break;
                 }
@@ -760,8 +813,8 @@ void pga_calibration_new()
                 Complex voltage = calc_fourier(LCR_ID_V, freq);
                 Complex current = calc_fourier(LCR_ID_I, freq);
 
-                if (voltage.abs < 0.1 || current.abs < 0.1) {
-                    printf("Warn: ADC input is very small %.4f, %.4f\n", voltage.abs, current.abs);
+                if (voltage.abs < 0.04 * 8192 || current.abs < 0.04 * 8192) {
+                    printf("\nWarn: ADC input is very small: [V,I] %.4f, %.4f\n", voltage.abs, current.abs);
                 }
 
                 ratio_avg_list[i] = is_target_v ? (voltage / current) : (current / voltage);
@@ -944,15 +997,14 @@ int _write(int file, char* ptr, int len)
 {
     (void)file;
 
-    HAL_UART_Transmit(&huart8, (uint8_t*)ptr, len, 0xFFFF);
+    // HAL_UART_Transmit(&huart8, (uint8_t*)ptr, len, 0xFFFF);
 
-    /*
     int DataIdx;
 
     for (DataIdx = 0; DataIdx < len; DataIdx++) {
-        __io_putchar(*ptr++);
+        while (!READ_BIT(huart8.Instance->ISR, UART_FLAG_TXE));
+        huart8.Instance->TDR = ptr[DataIdx];
     }
-    */
     return len;
 }
 }

@@ -13,7 +13,6 @@ uint8_t SMR12864::get_bus()
     return GPIOD->IDR & 0xFF;
 }
 
-
 void SMR12864::set_bus_mode(bool is_out)
 {
     if (is_out) {
@@ -210,8 +209,7 @@ void SMR12864::cls()
 
 void SMR12864::write_command(uint8_t chip_id, uint8_t data)
 {
-    while (read_status(chip_id) & 0x80) {
-    }
+    while (read_status(chip_id) & 0x80);
 
     set_cs(0, chip_id == 0);
     set_cs(1, chip_id == 1);
@@ -232,8 +230,7 @@ void SMR12864::write_command(uint8_t chip_id, uint8_t data)
 
 void SMR12864::write_data(uint8_t chip_id, uint8_t data)
 {
-    while (read_status(chip_id) & 0x80) {
-    }
+    while (read_status(chip_id) & 0x80);
 
     set_cs(0, chip_id == 0);
     set_cs(1, chip_id == 1);
