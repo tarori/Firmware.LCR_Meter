@@ -15,7 +15,7 @@
 
 #define FIELD_GET(mask, reg) (((reg) & (mask)) >> (__builtin_ffsll(mask) - 1))
 #define __ALIGN_MASK(x, mask) ((x) & ~(mask))
-#define ALIGN(x, a) __ALIGN_MASK(x, (typeof(x))(a)-1)
+#define ALIGN(x, a) __ALIGN_MASK(x, (typeof(x))(a) - 1)
 
 static inline void delay_us(uint64_t us)
 {
@@ -43,16 +43,21 @@ static inline uint32_t dma_get_last_index(ADC_HandleTypeDef* hadc, uint32_t buf_
     return (2 * buf_size - 1 - __HAL_DMA_GET_COUNTER(hadc->DMA_Handle)) % buf_size;
 }
 
+static inline double my_fmod(double x, double y)
+{
+    int32_t k = (float)x / (float)y;
+    return x - k * y;
+}
+
 static inline float my_fast_sin(double x)
 {
-    float in = fmod(x, 2 * M_PI);
-
+    float in = my_fmod(x, 2 * M_PI);
     return sinf(in);
 }
 
 static inline float my_fast_cos(double x)
 {
-    float in = fmod(x, 2 * M_PI);
+    float in = my_fmod(x, 2 * M_PI);
     return cosf(in);
 }
 
@@ -79,3 +84,17 @@ private:
 };
 
 inline volatile uint32_t ScopedLock::lock_ref_count = 0;
+
+inline uint32_t delaymeas_start_cnt;
+
+static inline void delaymeas_start()
+{
+    delaymeas_start_cnt = TIM23->CNT;
+}
+
+static inline void delaymeas_end()
+{
+    uint32_t end_cnt = TIM23->CNT;
+    double elapsed_ms = (uint32_t)(end_cnt - delaymeas_start_cnt) * 1000.0 / SystemCoreClock * 2;
+    printf("Elapsed: %.5f ms\n", elapsed_ms);
+}

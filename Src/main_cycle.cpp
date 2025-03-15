@@ -93,6 +93,9 @@ struct Settings {
         {{1.0000, -0.0000}, {4.7367, -0.1283}, {17.6818, -1.9083}, {49.0570, -14.9982}},
         {{1.0000, -0.0000}, {4.7228, -0.2555}, {17.0647, -3.6855}, {38.9816, -23.8292}}};
 
+    Complex ac_couple_gain[freq_list_length] = {
+        {0.999973, 0.003252}, {0.999986, 0.001090}, {0.999992, 0.000329}, {0.999996, 0.000134}, {0.999996, 0.000070}, {0.999991, 0.000022}, {1.000000, 0.000014}, {0.999995, 0.000011}, {0.999999, 0.000005}, {1.000003, 0.000005}, {1.000001, 0.000002}, {1.000002, 0.000010}, {0.999992, 0.000008}};
+
     double tia_res_table[tia_list_length] = {20, 100, 1000, 20000};
     double tia_cap_table[tia_list_length] = {-50e-12, 11.5e-12, 10.2e-12, 1.4e-12};
 
@@ -112,6 +115,7 @@ void pga_calibration();
 void pga_calibration_new();
 void adc_calibration();
 void dac_calibration();
+void ac_couple_calibration();
 void pga_set_gain(LCR_ID_IV id, int gain_id);
 void tia_set_gain(int gain_id);
 void coupling_set_dc(bool cur, bool pot);
@@ -195,8 +199,9 @@ void main_loop()
 
         while (0) {
             // adc_calibration();
-            dac_calibration();
+            // dac_calibration();
             // pga_calibration_new();
+            ac_couple_calibration();
             delay_ms(5000);
         }
 
@@ -253,12 +258,17 @@ void main_loop()
 
         /* Real measurement */
         measure_voltage_current(false);
+        delaymeas_start();
         Complex voltage = calc_fourier(LCR_ID_V, freq);
         Complex current = calc_fourier(LCR_ID_I, freq);
+        delaymeas_end();
 
         Complex tia_conductance = Complex{1 / settings.tia_res_table[tia_gain_id], 2 * (double)PI * freq * settings.tia_cap_table[tia_gain_id]};
 
         voltage = voltage / settings.pga_v_gain_table[freq_id][pga_v_gain_id];
+        if (dc_couple == false) {
+            voltage = voltage / settings.ac_couple_gain[freq_id];
+        }
         current = (current * tia_conductance) / settings.pga_i_gain_table[freq_id][pga_i_gain_id];
         Complex impedance = voltage / current;
 
@@ -500,7 +510,7 @@ bool initialize_dac_tim()
 
     delay_ms(10);
 
-    hal_state |= HAL_TIM_Base_Start(&htim15);                     // TIM for ADC
+    hal_state |= HAL_TIM_Base_Start(&htim23);                     // TIM for counter
     hal_state |= HAL_TIM_Base_Start(&htim7);                      // TIM for DAC
     hal_state |= HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);  // Encoder 1
     hal_state |= HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);  // Encoder 2
@@ -527,35 +537,35 @@ void adc_calibration_dump()
     while (1);
 }
 
-struct Complex
-calc_fourier(LCR_ID_IV id, int freq)
+Complex calc_fourier(LCR_ID_IV id, int freq)
 {
     double real_sum = 0;
+    double im_sum = 0;
     double ratio = (id == LCR_ID_V) ? 1 : settings.adc_ratio;
     double delay = (id == LCR_ID_V) ? 0 : settings.adc_delay_err;
+    double adc_sampling_period = 1.0 / adc_sampling_freq;
     for (uint32_t i = 0; i < adc_data_buf_len; ++i) {
-        double cos_val = my_fast_cos(2 * M_PI * freq * (delay + i / (double)adc_sampling_freq));
-        real_sum += adc_data_buffer[id][i] * cos_val / adc_data_buf_len;
+        double sin_cos_phase = (2 * M_PI * freq) * (delay + i * adc_sampling_period);
+        double cos_val = my_fast_cos(sin_cos_phase);
+        double sin_val = -my_fast_sin(sin_cos_phase);
+        real_sum += adc_data_buffer[id][i] * cos_val;
+        im_sum += adc_data_buffer[id][i] * sin_val;
     }
 
-    double im_sum = 0;
-    for (uint32_t i = 0; i < adc_data_buf_len; ++i) {
-        double sin_val = -my_fast_sin(2 * M_PI * freq * (delay + i / (double)adc_sampling_freq));
-        im_sum += adc_data_buffer[id][i] * sin_val / adc_data_buf_len;
-    }
-
-    return Complex(ratio * real_sum, ratio * im_sum);
+    return Complex(ratio * real_sum / adc_data_buf_len, ratio * im_sum / adc_data_buf_len);
 }
 
 double set_dac_output(int freq, double v_rms)
 {
     set_dac_bw(freq);
-
+    if (SystemCoreClock != 240000000) {
+        printf("Warn: check clock settings\n");
+    }
     if (freq < 1000) {
-        TIM7->ARR = 1200 - 1;
+        TIM7->ARR = 600 - 1;
         dac_sampling_freq = 200e+3;
     } else {
-        TIM7->ARR = 48 - 1;
+        TIM7->ARR = 24 - 1;
         dac_sampling_freq = 5e+6;
     }
 
@@ -832,6 +842,69 @@ void pga_calibration_new()
         printf("},\n");
     }
     printf("PGA Calibration Done!\n");
+}
+
+void ac_couple_calibration()
+{
+    printf("Insert 1kOhm resistor\n");
+    set_iv_mux_sw(false, false);
+    pga_set_gain(LCR_ID_V, 0);
+    pga_set_gain(LCR_ID_I, 0);
+    tia_set_gain(2);
+    printf("{");
+    for (int freq_id = 0; freq_id < freq_list_length; ++freq_id) {
+        int freq = settings.freq_list[freq_id];
+
+        double v_rms = 1.0;
+        set_dac_output(freq, v_rms);
+        coupling_set_dc(true, true);  // DC couple
+        delay_ms(200);
+
+        int measurement_cycle = 4;
+        Complex ratio_list[measurement_cycle];
+
+        for (int i = 0; i < measurement_cycle; ++i) {
+            measure_voltage_current(false);
+            if (adc_is_clipping(LCR_ID_I, false)
+                || adc_is_clipping(LCR_ID_V, false)) {
+                printf("Warn: ADC is clipping\n");
+            }
+            Complex voltage = calc_fourier(LCR_ID_V, freq);
+            Complex current = calc_fourier(LCR_ID_I, freq);
+            ratio_list[i] = voltage / current;
+            if (voltage.abs < 0.2 * 8192 || current.abs < 0.2 * 8192) {
+                printf("\nWarn: ADC input is very small: [V,I] %.4f, %.4f\n", voltage.abs, current.abs);
+            }
+        }
+        Complex ratio_dc = mid(ratio_list, measurement_cycle);
+
+        coupling_set_dc(true, false);  // AC couple
+        delay_ms(100);
+        for (int i = 0; i < measurement_cycle; ++i) {
+            measure_voltage_current(false);
+            if (adc_is_clipping(LCR_ID_I, false)
+                || adc_is_clipping(LCR_ID_V, false)) {
+                printf("Warn: ADC is clipping\n");
+            }
+            Complex voltage = calc_fourier(LCR_ID_V, freq);
+            Complex current = calc_fourier(LCR_ID_I, freq);
+            ratio_list[i] = voltage / current;
+            if (voltage.abs < 0.2 * 8192 || current.abs < 0.2 * 8192) {
+                printf("\nWarn: ADC input is very small: [V,I] %.4f, %.4f\n", voltage.abs, current.abs);
+            }
+        }
+
+        Complex ratio_ac = mid(ratio_list, measurement_cycle);
+
+        Complex ratio = ratio_ac / ratio_dc;
+
+        printf("{%.6f,%.6f}", ratio.real, ratio.im);
+        if (freq_id < freq_list_length - 1) {
+            printf(",");
+        }
+    }
+    printf("}\n");
+    printf("AC Calibration Done!\n");
 }
 
 void adc_data_dump()
