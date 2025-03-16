@@ -27,9 +27,9 @@ enum LCR_ID_IV {
 };
 
 // DAC
-constexpr uint32_t dac_dma_buf_len = 5000;
+constexpr uint32_t dac_dma_buf_len = 40000;
 __attribute__((section(".RAM_DMA"))) uint16_t dac_dma_buffer[2][dac_dma_buf_len];
-double dac_sampling_freq = 5.0e+6;
+double dac_sampling_freq = 0;
 
 // ADC
 constexpr uint32_t adc_dma_buf_len = 256;
@@ -163,6 +163,7 @@ void main_loop()
 
     int freq = 0;
     int freq_id = 9;  // 100kHz Default
+    int vrms_id = 0;
     bool dac_changed = true;
     bool dc_couple = true;
     TIM4->CNT -= 4 * ((TIM4->CNT / 4 - freq_id) % freq_list_length);
@@ -178,9 +179,14 @@ void main_loop()
             freq_id = freq_id_new;
         }
 
-        v_rms = (((int32_t)TIM3->CNT - INT16_MAX) / 4) * 0.1;
-        if (v_rms <= 0) {
-            v_rms = 0.05;
+        int vrms_id_new = ((int32_t)TIM3->CNT - INT16_MAX) / 4;
+        if (vrms_id_new != vrms_id) {
+            v_rms = vrms_id_new * 0.1;
+            if (v_rms <= 0) {
+                v_rms = 0.05;
+            }
+            vrms_id = vrms_id_new;
+            dac_changed = true;
         }
 
         if (button2_pushed) {
@@ -192,16 +198,19 @@ void main_loop()
 
         if (dac_changed) {
             freq = settings.freq_list[freq_id];
+            delaymeas_start();
             v_rms = set_dac_output(freq, v_rms);
+            delaymeas_end();
+            dac_changed = false;
         }
 
         double battery_voltage = read_battery_voltage();
 
         while (0) {
             // adc_calibration();
-            // dac_calibration();
+            dac_calibration();
             // pga_calibration_new();
-            ac_couple_calibration();
+            // ac_couple_calibration();
             delay_ms(5000);
         }
 
@@ -258,10 +267,8 @@ void main_loop()
 
         /* Real measurement */
         measure_voltage_current(false);
-        delaymeas_start();
         Complex voltage = calc_fourier(LCR_ID_V, freq);
         Complex current = calc_fourier(LCR_ID_I, freq);
-        delaymeas_end();
 
         Complex tia_conductance = Complex{1 / settings.tia_res_table[tia_gain_id], 2 * (double)PI * freq * settings.tia_cap_table[tia_gain_id]};
 
@@ -562,8 +569,8 @@ double set_dac_output(int freq, double v_rms)
         printf("Warn: check clock settings\n");
     }
     if (freq < 1000) {
-        TIM7->ARR = 600 - 1;
-        dac_sampling_freq = 200e+3;
+        TIM7->ARR = 300 - 1;
+        dac_sampling_freq = 400e+3;
     } else {
         TIM7->ARR = 24 - 1;
         dac_sampling_freq = 5e+6;
@@ -576,25 +583,26 @@ double set_dac_output(int freq, double v_rms)
     }
 
     uint32_t rand_seed = 0;
-    HAL_RNG_GenerateRandomNumber(&hrng, &rand_seed);
+    // HAL_RNG_GenerateRandomNumber(&hrng, &rand_seed);
     srand(rand_seed);
+    srand(rand());
 
     /* No dither */
+    /*
     for (uint32_t i = 0; i < dac_dma_buf_len; ++i) {
         double dac_code_ideal = 2043.0 + 1173.0 * v_rms * my_fast_sin(2 * M_PI * i * freq / (double)dac_sampling_freq);
         dac_dma_buffer[0][i] = dac_code_ideal;
-        // dac_dma_buffer[1][i] = dac_code_ideal + 0.5;
+        dac_dma_buffer[1][i] = dac_code_ideal + 0.5;
     }
+    */
 
     /* Constant dither */
-    /*
     for (uint32_t i = 0; i < dac_dma_buf_len; ++i) {
         double dither = ((rand() % 16384) - 8192) / 16384.0;
         double dac_code_ideal = 2043.0 + 1173.0 * v_rms * my_fast_sin(2 * M_PI * i * freq / (double)dac_sampling_freq) + dither;
         dac_dma_buffer[0][i] = dac_code_ideal;
         dac_dma_buffer[1][i] = dac_code_ideal + 0.5;
     }
-    */
 
     /* Dither shaping */
     /*
@@ -689,7 +697,7 @@ void dac_calibration()
 
     measure_voltage_current(false);
     if (adc_is_clipping(LCR_ID_I, false) || adc_is_clipping(LCR_ID_V, false)) {
-        printf("Warn: ADC is clipping\n");
+        //printf("Warn: ADC is clipping\n");
     }
 
     adc_data_dump();
@@ -1049,7 +1057,6 @@ void callback_1ms()
 }
 
 extern "C" {
-
 int _read(int file, char* ptr, int len)
 {
     (void)file;

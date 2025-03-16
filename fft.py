@@ -18,7 +18,12 @@ if len(sys.argv) == 1:
 
 raw_data = pd.read_csv(sys.argv[1], names=['I', 'V'])
 raw_data = raw_data['V']
-raw_data = raw_data.astype(float)
+try:
+  raw_data = raw_data.astype(float)
+except:
+  raw_data = raw_data[1:]
+  raw_data = raw_data.astype(float)
+
 adc_data = raw_data / adc_full_scale - 1
 adc_data_voltage = adc_data * adc_full_voltage
 
@@ -60,7 +65,7 @@ plt.ylabel('Signal (dBFS)')
 plt.xscale('log')
 plt.yscale('linear')
 plt.xlim([Fs/N*8, Fs/2])
-plt.ylim([-140, 20])
+plt.ylim([-140, 0])
 plt.grid()
 plt.show()
 
@@ -70,6 +75,6 @@ plt.ylabel('Signal (dBFS)')
 plt.xscale('linear')
 plt.yscale('linear')
 #plt.xticks(np.arange(0, Fs/2+1, Fs/8))
-plt.ylim([-140, 20])
+plt.ylim([-140, 0])
 plt.grid()
 plt.show()
