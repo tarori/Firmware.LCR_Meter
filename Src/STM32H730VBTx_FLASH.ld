@@ -62,8 +62,8 @@ _Min_Stack_Size = 0x400; /* required amount of stack */
 MEMORY
 {
 DTCMRAM (xrw)      : ORIGIN = 0x20000000, LENGTH = 128K
-RAM_D1_1 (xrw)      : ORIGIN = 0x24000000, LENGTH = 160K
-RAM_D1_2 (xrw)      : ORIGIN = 0x24028000, LENGTH = 160K
+RAM_D1_1 (xrw)      : ORIGIN = 0x24000000, LENGTH = 128K
+RAM_D1_2 (xrw)      : ORIGIN = 0x24020000, LENGTH = 192K
 RAM_D2 (xrw)      : ORIGIN = 0x30000000, LENGTH = 32K
 RAM_D3 (xrw)      : ORIGIN = 0x38000000, LENGTH = 16K
 ITCMRAM (xrw)      : ORIGIN = 0x00000000, LENGTH = 64K
@@ -200,5 +200,4 @@ SECTIONS
 
   .ARM.attributes 0 : { *(.ARM.attributes) }
 }
-
 

@@ -20,6 +20,7 @@ volatile bool init_done = false;
 volatile bool button1_pushed = false;
 volatile bool button2_pushed = false;
 volatile bool button3_pushed = false;
+volatile bool button4_pushed = false;
 
 enum LCR_ID_IV {
     LCR_ID_I = 0,
@@ -38,13 +39,8 @@ constexpr uint32_t adc_data_buf_len = 24000;
 __attribute__((section(".RAM_DATA"))) uint16_t adc_data_buffer[2][adc_data_buf_len];
 double adc_sampling_freq = 120e+6 / 125;
 
-bool read_button3()
-{
-    return HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8) == GPIO_PIN_RESET;
-}
-
 constexpr int freq_list_length = 13;
-constexpr int pga_list_length = 4;
+constexpr int pga_list_length = 6;
 constexpr int tia_list_length = 4;
 constexpr int dac_resolution = 12;
 
@@ -59,7 +55,7 @@ struct Settings {
     double open_resistance = 1.0e+24;
     double open_capacitance = 0.096e-12;
 
-    int pga_gain_disp[pga_list_length] = {1, 5, 20, 50};
+    int pga_gain_disp[pga_list_length] = {1, 2, 6, 13, 42, 135};
 
     Complex pga_v_gain_table[freq_list_length][pga_list_length] = {
         // 1, 4.75, 17.944, 53.833
@@ -99,8 +95,8 @@ struct Settings {
     double tia_res_table[tia_list_length] = {20, 100, 1000, 20000};
     double tia_cap_table[tia_list_length] = {-50e-12, 11.5e-12, 10.2e-12, 1.4e-12};
 
-    uint32_t adc1_linearity_cal[ADC_LINEAR_CALIB_REG_COUNT] = {0x20080e02, 0x20080200, 0x2007f9fe, 0x200805ff, 0x20181200, 0x01ff};
-    uint32_t adc2_linearity_cal[ADC_LINEAR_CALIB_REG_COUNT] = {0x2017fe00, 0x2027fe00, 0x200809fe, 0x1fe80600, 0x200811ff, 0x01fe};
+    uint32_t adc1_linearity_cal[ADC_LINEAR_CALIB_REG_COUNT] = {0x20180202, 0x20080202, 0x1ff7ea05, 0x2017f5ff, 0x1ff801fe, 0x020a};
+    uint32_t adc2_linearity_cal[ADC_LINEAR_CALIB_REG_COUNT] = {0x1fe7f9fe, 0x200811ff, 0x20180603, 0x20380e00, 0x1ff7f5ff, 0x0200};
 } settings;
 
 SMR12864 lcd;
@@ -112,8 +108,6 @@ void measure_voltage_current(bool is_short);
 bool adc_is_clipping(LCR_ID_IV id, bool strict);
 double read_battery_voltage();
 void pga_calibration();
-void pga_calibration_new();
-void adc_calibration();
 void dac_calibration();
 void ac_couple_calibration();
 void pga_set_gain(LCR_ID_IV id, int gain_id);
@@ -206,10 +200,10 @@ void main_loop()
 
         double battery_voltage = read_battery_voltage();
 
-        while (0) {
+        while (1) {
             // adc_calibration();
-            dac_calibration();
-            // pga_calibration_new();
+            // dac_calibration();
+            pga_calibration();
             // ac_couple_calibration();
             delay_ms(5000);
         }
@@ -510,8 +504,8 @@ bool initialize_adc()
 bool initialize_dac_tim()
 {
     int hal_state = HAL_OK;
-    hal_state |= HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)dac_dma_buffer[0], dac_dma_buf_len, DAC_ALIGN_12B_R);
-    hal_state |= HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, (uint32_t*)dac_dma_buffer[1], dac_dma_buf_len, DAC_ALIGN_12B_R);
+    hal_state |= HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)&dac_dma_buffer[0][0], dac_dma_buf_len, DAC_ALIGN_12B_R);
+    hal_state |= HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, (uint32_t*)&dac_dma_buffer[1][0], dac_dma_buf_len, DAC_ALIGN_12B_R);
     CLEAR_BIT(((DMA_Stream_TypeDef*)hdac1.DMA_Handle1->Instance)->CR, DMA_IT_TC | DMA_IT_HT);
     CLEAR_BIT(((DMA_Stream_TypeDef*)hdac1.DMA_Handle2->Instance)->CR, DMA_IT_TC | DMA_IT_HT);
 
@@ -569,10 +563,10 @@ double set_dac_output(int freq, double v_rms)
         printf("Warn: check clock settings\n");
     }
     if (freq < 1000) {
-        TIM7->ARR = 300 - 1;
+        TIM7->ARR = 600 - 1;
         dac_sampling_freq = 400e+3;
     } else {
-        TIM7->ARR = 24 - 1;
+        TIM7->ARR = 48 - 1;
         dac_sampling_freq = 5e+6;
     }
 
@@ -599,10 +593,11 @@ double set_dac_output(int freq, double v_rms)
     /* Constant dither */
     for (uint32_t i = 0; i < dac_dma_buf_len; ++i) {
         double dither = ((rand() % 16384) - 8192) / 16384.0;
-        double dac_code_ideal = 2043.0 + 1173.0 * v_rms * my_fast_sin(2 * M_PI * i * freq / (double)dac_sampling_freq) + dither;
+        double dac_code_ideal = 2034.0 + 1173.0 * v_rms * my_fast_sin(2 * M_PI * i * freq / (double)dac_sampling_freq) + dither;
         dac_dma_buffer[0][i] = dac_code_ideal;
         dac_dma_buffer[1][i] = dac_code_ideal + 0.5;
     }
+    // SCB_CleanDCache();
 
     /* Dither shaping */
     /*
@@ -633,21 +628,15 @@ bool adc_is_clipping(LCR_ID_IV id, bool strict)
     }
 }
 
-void set_iv_mux_sw(bool sw1, bool sw2)
-{
-    HAL_GPIO_WritePin(GPIOE, GPIO_PIN_12, sw1 ? GPIO_PIN_SET : GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOE, GPIO_PIN_11, sw2 ? GPIO_PIN_SET : GPIO_PIN_RESET);
-}
-
 void set_backlight(bool state)
 {
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, state ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOD, GPIO_PIN_8, state ? GPIO_PIN_SET : GPIO_PIN_RESET);
 }
 
 void coupling_set_dc(bool cur, bool pot)
 {
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, cur ? GPIO_PIN_SET : GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, pot ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_15, cur ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, pot ? GPIO_PIN_SET : GPIO_PIN_RESET);
 }
 
 double read_battery_voltage()
@@ -659,40 +648,17 @@ double read_battery_voltage()
     return 3.3 * 2.0 / 4.0 * adc_val / 4096.0;
 }
 
-
-void adc_calibration()
-{
-    tia_set_gain(0);
-    int freq_id = 9;
-    int freq = settings.freq_list[freq_id];
-    set_dac_output(freq, 1.0);
-    tia_set_gain(0);
-    pga_set_gain(LCR_ID_V, 0);
-    pga_set_gain(LCR_ID_I, 0);
-    set_iv_mux_sw(true, false);
-    delay_ms(100);
-
-    measure_voltage_current(false);
-    if (adc_is_clipping(LCR_ID_I, false) || adc_is_clipping(LCR_ID_V, false)) {
-        printf("Warn: ADC is clipping\n");
-    }
-    Complex voltage = calc_fourier(LCR_ID_V, freq);
-    Complex current = calc_fourier(LCR_ID_I, freq);
-    Complex ratio = current / voltage;
-    double delay_s = -atan2(ratio.im, ratio.real) / (2 * M_PI * freq);
-    printf("ADC Cal Ratio: %f, Delay %fns, Complex: %f+%fi\n", ratio.abs, delay_s * 1.0e+9, ratio.real, ratio.im);
-}
-
 void dac_calibration()
 {
     tia_set_gain(0);
-    int freq_id = 4;  // 1kHz
+    // int freq_id = 3;  // 1kHz
+    int freq_id = 9;  // 100kHz
     int freq = settings.freq_list[freq_id];
-    set_dac_output(freq, 1.5);
+    // set_dac_output(freq, 1.5);
+    set_dac_output(freq, 0.1);
     tia_set_gain(0);
     pga_set_gain(LCR_ID_V, 0);
     pga_set_gain(LCR_ID_I, 0);
-    set_iv_mux_sw(true, false);
     delay_ms(100);
 
     measure_voltage_current(false);
@@ -724,87 +690,19 @@ void dac_calibration()
 
 void pga_calibration()
 {
-    tia_set_gain(0);
-    bool is_target_v = true;
-    for (int freq_id = 0; freq_id < freq_list_length; ++freq_id) {
-        int freq = settings.freq_list[freq_id];
-        int pga_v_gain_id = 0;
-        int pga_i_gain_id = 0;
-        printf("{");
-        while (1) {
-            pga_set_gain(LCR_ID_V, pga_v_gain_id);
-            pga_set_gain(LCR_ID_I, pga_i_gain_id);
-            set_iv_mux_sw(true, false);
-            double v_rms = 1.0;
-            while (1) {
-                set_dac_output(freq, v_rms);
-                measure_voltage_current(false);
-                if (adc_is_clipping(LCR_ID_I, false)
-                    || adc_is_clipping(LCR_ID_V, false)) {
-                    v_rms *= 0.8;
-                } else {
-                    break;
-                }
-            }
-            delay_ms(100);
-
-            int measurement_cycle = 16;
-            Complex ratio_list[measurement_cycle];
-
-            for (int i = 0; i < measurement_cycle; ++i) {
-                measure_voltage_current(false);
-                if (adc_is_clipping(LCR_ID_I, true)
-                    || adc_is_clipping(LCR_ID_V, true)) {
-                    printf("Warn: ADC is clipping\n");
-                }
-
-                Complex voltage = calc_fourier(LCR_ID_V, freq);
-                Complex current = calc_fourier(LCR_ID_I, freq);
-
-                ratio_list[i] = is_target_v ? (voltage / current) : (current / voltage);
-            }
-
-            Complex ratio = mid(ratio_list, measurement_cycle);
-
-            // printf("%dkHz, %d/%d, Ratio: %.5f + %.5fi = |%.6f|\n", freq / 1000, pga_v_gain_id, pga_i_gain_id, ratio.real, ratio.im, ratio.abs);
-            printf("{%.4f,%.4f}", ratio.real, ratio.im);
-            is_target_v ? pga_v_gain_id++ : pga_i_gain_id++;
-            if (pga_v_gain_id >= pga_list_length || pga_i_gain_id >= pga_list_length) {
-                break;
-            } else {
-                printf(",");
-            }
-        }
-        printf("},\n");
-    }
-    printf("PGA Calibration Done!\n");
-}
-
-void pga_calibration_new()
-{
     printf("Insert 1kOhm resistor\n");
     bool is_target_v = true;
-    set_iv_mux_sw(false, false);
-    Complex ratio_list[pga_list_length];
+    printf("PGA calibration for %c\n", is_target_v ? 'V' : 'I');
     for (int freq_id = 0; freq_id < freq_list_length; ++freq_id) {
         int freq = settings.freq_list[freq_id];
-        int pga_v_gain_id = 0;
-        int pga_i_gain_id = 0;
-        printf("{");
-        for (int target_gain_id = 0; target_gain_id < pga_list_length; ++target_gain_id) {
-            if (is_target_v) {
-                pga_v_gain_id = target_gain_id;
-                pga_i_gain_id = 1;
-                tia_set_gain(2);
-            } else {
-                pga_i_gain_id = target_gain_id;
-                pga_v_gain_id = 0;
-                tia_set_gain(1);
-            }
+        printf("{{%.4f,%.4f},", 1.0, 0.0);
+        Complex target_gain = {1.0, 0};
+        for (int target_gain_id = 1; target_gain_id < pga_list_length; ++target_gain_id) {
 
-            pga_set_gain(LCR_ID_V, pga_v_gain_id);
-            pga_set_gain(LCR_ID_I, pga_i_gain_id);
-
+            // Source setup
+            tia_set_gain(2);
+            pga_set_gain(LCR_ID_V, target_gain_id);
+            pga_set_gain(LCR_ID_I, target_gain_id);
             double v_rms = 1.0;
             while (1) {
                 set_dac_output(freq, v_rms);
@@ -812,10 +710,20 @@ void pga_calibration_new()
                 if (adc_is_clipping(LCR_ID_I, true)
                     || adc_is_clipping(LCR_ID_V, true)) {
                     v_rms *= 0.9;
+                    if (v_rms < 0.005) {
+                        printf("\nSource level not converged\n");
+                        break;
+                    }
                 } else {
                     break;
                 }
             }
+            delay_ms(100);
+
+            // Ref measurement
+            int ref_gain_id = target_gain_id - 1;
+            pga_set_gain(LCR_ID_V, ref_gain_id);
+            pga_set_gain(LCR_ID_I, ref_gain_id);
             delay_ms(100);
 
             int measurement_cycle = 16;
@@ -831,18 +739,49 @@ void pga_calibration_new()
                 Complex voltage = calc_fourier(LCR_ID_V, freq);
                 Complex current = calc_fourier(LCR_ID_I, freq);
 
-                if (voltage.abs < 0.04 * 8192 || current.abs < 0.04 * 8192) {
+                if (voltage.abs < 0.1 * 8192 || current.abs < 0.1 * 8192) {
                     printf("\nWarn: ADC input is very small: [V,I] %.4f, %.4f\n", voltage.abs, current.abs);
                 }
 
                 ratio_avg_list[i] = is_target_v ? (voltage / current) : (current / voltage);
             }
 
-            ratio_list[target_gain_id] = mid(ratio_avg_list, measurement_cycle);
-            Complex ratio_rel = ratio_list[target_gain_id] / ratio_list[0];
+            Complex ref_ratio = mid(ratio_avg_list, measurement_cycle);
 
-            // printf("%dkHz, %d/%d, Ratio: %.5f + %.5fi = |%.6f|\n", freq / 1000, pga_v_gain_id, pga_i_gain_id, ratio.real, ratio.im, ratio.abs);
-            printf("{%.4f,%.4f}", ratio_rel.real, ratio_rel.im);
+            // Target measurement
+            if (is_target_v) {
+                pga_set_gain(LCR_ID_V, target_gain_id);
+                pga_set_gain(LCR_ID_I, ref_gain_id);
+            } else {
+                pga_set_gain(LCR_ID_V, ref_gain_id);
+                pga_set_gain(LCR_ID_I, target_gain_id);
+            }
+            delay_ms(100);
+
+            for (int i = 0; i < measurement_cycle; ++i) {
+                measure_voltage_current(false);
+                if (adc_is_clipping(LCR_ID_I, false)
+                    || adc_is_clipping(LCR_ID_V, false)) {
+                    printf("Warn: ADC is clipping\n");
+                }
+
+                Complex voltage = calc_fourier(LCR_ID_V, freq);
+                Complex current = calc_fourier(LCR_ID_I, freq);
+
+                if (voltage.abs < 0.1 * 8192 || current.abs < 0.1 * 8192) {
+                    printf("\nWarn: ADC input is very small: [V,I] %.4f, %.4f\n", voltage.abs, current.abs);
+                }
+
+                ratio_avg_list[i] = is_target_v ? (voltage / current) : (current / voltage);
+            }
+
+            Complex target_ratio = mid(ratio_avg_list, measurement_cycle);
+
+            // Gain calculation
+            Complex gain_rel = target_ratio / ref_ratio;
+            target_gain = gain_rel * target_gain;
+
+            printf("{%.4f,%.4f}", target_gain.real, target_gain.im);
             if (target_gain_id + 1 < pga_list_length) {
                 printf(",");
             }
@@ -855,7 +794,6 @@ void pga_calibration_new()
 void ac_couple_calibration()
 {
     printf("Insert 1kOhm resistor\n");
-    set_iv_mux_sw(false, false);
     pga_set_gain(LCR_ID_V, 0);
     pga_set_gain(LCR_ID_I, 0);
     tia_set_gain(2);
@@ -880,7 +818,7 @@ void ac_couple_calibration()
             Complex voltage = calc_fourier(LCR_ID_V, freq);
             Complex current = calc_fourier(LCR_ID_I, freq);
             ratio_list[i] = voltage / current;
-            if (voltage.abs < 0.2 * 8192 || current.abs < 0.2 * 8192) {
+            if (voltage.abs < 0.05 * 8192 || current.abs < 0.05 * 8192) {
                 printf("\nWarn: ADC input is very small: [V,I] %.4f, %.4f\n", voltage.abs, current.abs);
             }
         }
@@ -925,51 +863,122 @@ void adc_data_dump()
     }
 }
 
-void pga_set_gain(LCR_ID_IV id, int gain_id)
+void pga_set_gain_sub(LCR_ID_IV iv_id, int stage_id, int gain_id)
 {
-    if (gain_id >= 4) {
-        printf("PGA Gain Error\n");
-        return;
-    }
-    if (id == LCR_ID_I) {
-        switch (gain_id) {
-        case 0:
-            HAL_GPIO_WritePin(GPIOE, GPIO_PIN_8, GPIO_PIN_RESET);
-            HAL_GPIO_WritePin(GPIOE, GPIO_PIN_7, GPIO_PIN_RESET);
-            break;
-        case 1:
-            HAL_GPIO_WritePin(GPIOE, GPIO_PIN_8, GPIO_PIN_RESET);
-            HAL_GPIO_WritePin(GPIOE, GPIO_PIN_7, GPIO_PIN_SET);
-            break;
-        case 2:
+    if (iv_id == LCR_ID_I) {
+        if (stage_id == 0) {
+            switch (gain_id) {
+            case 0:  // 1x1
+                HAL_GPIO_WritePin(GPIOE, GPIO_PIN_14, GPIO_PIN_SET);
+                HAL_GPIO_WritePin(GPIOE, GPIO_PIN_13, GPIO_PIN_SET);
+                break;
+            case 1:  // 1x2
+                HAL_GPIO_WritePin(GPIOE, GPIO_PIN_14, GPIO_PIN_RESET);
+                HAL_GPIO_WritePin(GPIOE, GPIO_PIN_13, GPIO_PIN_RESET);
+                break;
+            default:
+                printf("PGA sub gain error\n");
+                return;
+            }
+        } else if (stage_id == 1) {
+            switch (gain_id) {
+            case 0:
+                HAL_GPIO_WritePin(GPIOE, GPIO_PIN_8, GPIO_PIN_RESET);
+                HAL_GPIO_WritePin(GPIOE, GPIO_PIN_7, GPIO_PIN_RESET);
+                break;
+            case 1:
+                HAL_GPIO_WritePin(GPIOE, GPIO_PIN_8, GPIO_PIN_RESET);
+                HAL_GPIO_WritePin(GPIOE, GPIO_PIN_7, GPIO_PIN_SET);
+                break;
+            case 2:
+                HAL_GPIO_WritePin(GPIOE, GPIO_PIN_8, GPIO_PIN_SET);
+                HAL_GPIO_WritePin(GPIOE, GPIO_PIN_7, GPIO_PIN_RESET);
+                break;
+            case 3:
+                HAL_GPIO_WritePin(GPIOE, GPIO_PIN_8, GPIO_PIN_SET);
+                HAL_GPIO_WritePin(GPIOE, GPIO_PIN_7, GPIO_PIN_SET);
+                break;
+            default:
+                printf("PGA sub gain error\n");
+                return;
+            }
+        } else {
+            printf("PGA sub gain error\n");
+        }
 
-            HAL_GPIO_WritePin(GPIOE, GPIO_PIN_8, GPIO_PIN_SET);
-            HAL_GPIO_WritePin(GPIOE, GPIO_PIN_7, GPIO_PIN_RESET);
-            break;
-        case 3:
-            HAL_GPIO_WritePin(GPIOE, GPIO_PIN_8, GPIO_PIN_SET);
-            HAL_GPIO_WritePin(GPIOE, GPIO_PIN_7, GPIO_PIN_SET);
-            break;
-        }
     } else {
-        switch (gain_id) {
-        case 0:
-            HAL_GPIO_WritePin(GPIOE, GPIO_PIN_9, GPIO_PIN_RESET);
-            HAL_GPIO_WritePin(GPIOE, GPIO_PIN_10, GPIO_PIN_RESET);
-            break;
-        case 1:
-            HAL_GPIO_WritePin(GPIOE, GPIO_PIN_9, GPIO_PIN_RESET);
-            HAL_GPIO_WritePin(GPIOE, GPIO_PIN_10, GPIO_PIN_SET);
-            break;
-        case 2:
-            HAL_GPIO_WritePin(GPIOE, GPIO_PIN_9, GPIO_PIN_SET);
-            HAL_GPIO_WritePin(GPIOE, GPIO_PIN_10, GPIO_PIN_RESET);
-            break;
-        case 3:
-            HAL_GPIO_WritePin(GPIOE, GPIO_PIN_9, GPIO_PIN_SET);
-            HAL_GPIO_WritePin(GPIOE, GPIO_PIN_10, GPIO_PIN_SET);
-            break;
+        if (stage_id == 0) {
+            switch (gain_id) {
+            case 0:  // 1x1
+                HAL_GPIO_WritePin(GPIOE, GPIO_PIN_11, GPIO_PIN_SET);
+                HAL_GPIO_WritePin(GPIOE, GPIO_PIN_12, GPIO_PIN_SET);
+                break;
+            case 1:  // 1x2
+                HAL_GPIO_WritePin(GPIOE, GPIO_PIN_11, GPIO_PIN_RESET);
+                HAL_GPIO_WritePin(GPIOE, GPIO_PIN_12, GPIO_PIN_RESET);
+                break;
+            default:
+                printf("PGA sub gain error\n");
+                return;
+            }
+        } else if (stage_id == 1) {
+            switch (gain_id) {
+            case 0:
+                HAL_GPIO_WritePin(GPIOE, GPIO_PIN_9, GPIO_PIN_RESET);
+                HAL_GPIO_WritePin(GPIOE, GPIO_PIN_10, GPIO_PIN_RESET);
+                break;
+            case 1:
+                HAL_GPIO_WritePin(GPIOE, GPIO_PIN_9, GPIO_PIN_RESET);
+                HAL_GPIO_WritePin(GPIOE, GPIO_PIN_10, GPIO_PIN_SET);
+                break;
+            case 2:
+                HAL_GPIO_WritePin(GPIOE, GPIO_PIN_9, GPIO_PIN_SET);
+                HAL_GPIO_WritePin(GPIOE, GPIO_PIN_10, GPIO_PIN_RESET);
+                break;
+            case 3:
+                HAL_GPIO_WritePin(GPIOE, GPIO_PIN_9, GPIO_PIN_SET);
+                HAL_GPIO_WritePin(GPIOE, GPIO_PIN_10, GPIO_PIN_SET);
+                break;
+            default:
+                printf("PGA sub gain error\n");
+                return;
+            }
+        } else {
+            printf("PGA sub gain error\n");
         }
+    }
+}
+
+void pga_set_gain(LCR_ID_IV iv_id, int gain_id)
+{
+    switch (gain_id) {
+    case 0:  // 1x1
+        pga_set_gain_sub(iv_id, 0, 0);
+        pga_set_gain_sub(iv_id, 1, 0);
+        break;
+    case 1:  // 1x2
+        pga_set_gain_sub(iv_id, 0, 0);
+        pga_set_gain_sub(iv_id, 1, 1);
+        break;
+    case 2:  // 1x6.1
+        pga_set_gain_sub(iv_id, 0, 0);
+        pga_set_gain_sub(iv_id, 1, 2);
+        break;
+    case 3:  // 6.6x2
+        pga_set_gain_sub(iv_id, 0, 1);
+        pga_set_gain_sub(iv_id, 1, 1);
+        break;
+    case 4:  // 6.6x6.1
+        pga_set_gain_sub(iv_id, 0, 1);
+        pga_set_gain_sub(iv_id, 1, 2);
+        break;
+    case 5:  // 6.6x20.4
+        pga_set_gain_sub(iv_id, 0, 1);
+        pga_set_gain_sub(iv_id, 1, 3);
+        break;
+    default:
+        printf("PGA gain error\n");
+        return;
     }
 }
 
@@ -981,28 +990,27 @@ void tia_set_gain(int gain_id)
     }
     switch (gain_id) {
     case 0:
-        HAL_GPIO_WritePin(GPIOE, GPIO_PIN_14, GPIO_PIN_RESET);
-        HAL_GPIO_WritePin(GPIOE, GPIO_PIN_13, GPIO_PIN_RESET);
-        HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_SET);
         break;
     case 1:
-        HAL_GPIO_WritePin(GPIOE, GPIO_PIN_14, GPIO_PIN_RESET);
-        HAL_GPIO_WritePin(GPIOE, GPIO_PIN_13, GPIO_PIN_SET);
-        HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_RESET);
         break;
     case 2:
-        HAL_GPIO_WritePin(GPIOE, GPIO_PIN_14, GPIO_PIN_SET);
-        HAL_GPIO_WritePin(GPIOE, GPIO_PIN_13, GPIO_PIN_SET);
-        HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_RESET);
         break;
     case 3:
-        HAL_GPIO_WritePin(GPIOE, GPIO_PIN_14, GPIO_PIN_SET);
-        HAL_GPIO_WritePin(GPIOE, GPIO_PIN_13, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
         HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_RESET);
         break;
     }
 }
-
 
 void set_dac_bw(int freq)
 {
@@ -1019,24 +1027,57 @@ void set_dac_bw(int freq)
 
     switch (bw_id) {
     case 0:
-        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
-        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, GPIO_PIN_RESET);
         break;
     case 1:
-        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
-        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, GPIO_PIN_RESET);
         break;
     case 2:
-        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
-        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, GPIO_PIN_SET);
         break;
     case 3:
-        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
-        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, GPIO_PIN_SET);
         break;
     default:
         printf("DAC BW Error\n");
     }
+}
+
+
+bool button1_prev = false;
+bool button2_prev = false;
+bool button3_prev = false;
+bool button4_prev = false;
+
+void update_button()
+{
+    bool button1_state = (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_9) == GPIO_PIN_RESET);
+    if (button1_state && !button1_prev) {
+        button1_pushed = true;
+    }
+    button1_prev = button1_state;
+
+    bool button2_state = (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8) == GPIO_PIN_RESET);
+    if (button2_state && !button2_prev) {
+        button2_pushed = true;
+    }
+    button2_prev = button2_state;
+
+    bool button3_state = (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_8) == GPIO_PIN_RESET);
+    if (button3_state && !button3_prev) {
+        button3_pushed = true;
+    }
+    button3_prev = button3_state;
+
+    bool button4_state = (HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_14) == GPIO_PIN_RESET);
+    if (button4_state && !button4_prev) {
+        button4_pushed = true;
+    }
+    button4_prev = button4_state;
 }
 
 void callback_1ms()
@@ -1045,15 +1086,7 @@ void callback_1ms()
         return;
     }
 
-    static bool button3_prev = false;
-    if (read_button3()) {
-        if (button3_prev == false) {
-            button3_prev = true;
-            button3_pushed = true;
-        }
-    } else {
-        button3_prev = false;
-    }
+    update_button();
 }
 
 extern "C" {
@@ -1103,24 +1136,6 @@ extern DMA_HandleTypeDef hdma_adc1;
 extern DMA_HandleTypeDef hdma_adc2;
 extern DMA_HandleTypeDef hdma_dac1_ch1;
 extern DMA_HandleTypeDef hdma_dac1_ch2;
-
-/**
- * @brief This function handles EXTI line[9:5] interrupts.
- */
-void EXTI9_5_IRQHandler(void)
-{
-    HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_8);
-    button1_pushed = true;
-}
-
-/**
- * @brief This function handles EXTI line[15:10] interrupts.
- */
-void EXTI15_10_IRQHandler(void)
-{
-    HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_14);
-    button2_pushed = true;
-}
 
 /**
  * @brief This function handles DMA1 stream0 global interrupt.

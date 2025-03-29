@@ -17,7 +17,7 @@ if len(sys.argv) == 1:
     exit(1)
 
 raw_data = pd.read_csv(sys.argv[1], names=['I', 'V'])
-raw_data = raw_data['V']
+raw_data = raw_data['I']
 try:
   raw_data = raw_data.astype(float)
 except:
