@@ -7,7 +7,7 @@ import numpy as np
 from scipy import signal
 import sys
 
-Fs = 120e+6 / 125
+Fs = 12e+6 * 23 / 250
 dt = 1 / Fs
 adc_full_scale = 2**15
 adc_full_voltage = 3.3
