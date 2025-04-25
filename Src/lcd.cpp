@@ -266,6 +266,5 @@ uint8_t SMR12864::read_status(uint8_t chip_id)
     set_e(false);
     delay_us(1);
 
-    // return state;
-    return 0x00;
+    return state;
 }
