@@ -58,34 +58,34 @@ struct Settings {
     int pga_gain_disp[pga_list_length] = {1, 2, 6, 13, 42, 135};
 
     Complex pga_v_gain_table[freq_list_length][pga_list_length] = {
-        {{1.0000, 0.0000}, {2.0000, 0.0000}, {6.7988, 0.0001}, {13.1135, -0.0005}, {44.5774, -0.0035}, {133.7767, -0.0102}},
-        {{1.0000, 0.0000}, {2.0000, 0.0000}, {6.7986, -0.0000}, {13.1127, -0.0002}, {44.5754, -0.0005}, {133.7647, 0.0038}},
-        {{1.0000, 0.0000}, {2.0000, -0.0000}, {6.7987, -0.0003}, {13.1129, -0.0010}, {44.5757, -0.0052}, {133.7571, -0.0200}},
-        {{1.0000, 0.0000}, {2.0000, -0.0000}, {6.7986, -0.0007}, {13.1129, -0.0023}, {44.5757, -0.0122}, {133.7600, -0.0635}},
-        {{1.0000, 0.0000}, {2.0001, -0.0000}, {6.7987, -0.0014}, {13.1129, -0.0046}, {44.5755, -0.0242}, {133.7575, -0.1220}},
-        {{1.0000, 0.0000}, {2.0000, 0.0000}, {6.7988, -0.0034}, {13.1132, -0.0112}, {44.5763, -0.0605}, {133.7624, -0.3056}},
-        {{1.0000, 0.0000}, {2.0001, 0.0001}, {6.7986, -0.0067}, {13.1126, -0.0221}, {44.5746, -0.1198}, {133.7539, -0.6108}},
-        {{1.0000, 0.0000}, {2.0001, 0.0000}, {6.7992, -0.0139}, {13.1140, -0.0456}, {44.5784, -0.2456}, {133.7640, -1.2375}},
-        {{1.0000, 0.0000}, {2.0001, 0.0002}, {6.7987, -0.0340}, {13.1125, -0.1120}, {44.5715, -0.6061}, {133.7154, -3.0775}},
-        {{1.0000, 0.0000}, {2.0000, 0.0003}, {6.7984, -0.0682}, {13.1107, -0.2248}, {44.5570, -1.2186}, {133.5702, -6.1691}},
-        {{1.0000, 0.0000}, {2.0001, 0.0005}, {6.7961, -0.1367}, {13.0992, -0.4496}, {44.4750, -2.4372}, {132.9854, -12.1550}},
-        {{1.0000, 0.0000}, {2.0006, 0.0012}, {6.7800, -0.3416}, {13.0190, -1.1196}, {43.9278, -6.0432}, {128.3864, -30.0744}},
-        {{1.0000, 0.0000}, {2.0017, 0.0015}, {6.7195, -0.6820}, {12.7361, -2.2055}, {41.9934, -11.7741}, {113.4726, -55.4709}}};
+        {{1.0000, 0.0000}, {2.0001, 0.0003}, {6.7993, 0.0004}, {13.1130, 0.0019}, {44.5769, 0.0034}, {133.7630, 0.0143}},
+        {{1.0000, 0.0000}, {2.0003, 0.0001}, {6.7996, 0.0003}, {13.1148, 0.0006}, {44.5819, 0.0008}, {133.7790, -0.0008}},
+        {{1.0000, 0.0000}, {2.0002, 0.0001}, {6.7996, -0.0001}, {13.1140, -0.0005}, {44.5808, -0.0041}, {133.7699, -0.0242}},
+        {{1.0000, 0.0000}, {2.0002, 0.0000}, {6.7998, -0.0006}, {13.1140, -0.0020}, {44.5818, -0.0117}, {133.7769, -0.0605}},
+        {{1.0000, 0.0000}, {2.0003, -0.0001}, {6.7997, -0.0015}, {13.1146, -0.0051}, {44.5814, -0.0256}, {133.7782, -0.1259}},
+        {{1.0000, 0.0000}, {2.0002, 0.0000}, {6.7997, -0.0034}, {13.1143, -0.0111}, {44.5813, -0.0611}, {133.7741, -0.3095}},
+        {{1.0000, 0.0000}, {2.0002, 0.0000}, {6.7995, -0.0068}, {13.1140, -0.0227}, {44.5802, -0.1222}, {133.7740, -0.6185}},
+        {{1.0000, 0.0000}, {2.0003, 0.0000}, {6.8000, -0.0139}, {13.1142, -0.0451}, {44.5816, -0.2450}, {133.7663, -1.2360}},
+        {{1.0000, 0.0000}, {2.0003, 0.0000}, {6.7995, -0.0345}, {13.1142, -0.1138}, {44.5762, -0.6134}, {133.7256, -3.0973}},
+        {{1.0000, 0.0000}, {2.0001, 0.0001}, {6.7985, -0.0693}, {13.1096, -0.2270}, {44.5521, -1.2272}, {133.5465, -6.1920}},
+        {{1.0000, 0.0000}, {1.9998, 0.0006}, {6.7944, -0.1363}, {13.0938, -0.4494}, {44.4562, -2.4318}, {132.8256, -12.2805}},
+        {{1.0000, 0.0000}, {2.0003, 0.0014}, {6.7779, -0.3397}, {13.0153, -1.1176}, {43.9078, -6.0276}, {128.3253, -29.9840}},
+        {{1.0000, 0.0000}, {2.0020, 0.0029}, {6.7224, -0.6725}, {12.7398, -2.1935}, {42.0243, -11.7065}, {113.5838, -55.2866}}};
 
     Complex pga_i_gain_table[freq_list_length][pga_list_length] = {
-        {{1.0000, 0.0000}, {2.0001, -0.0000}, {6.7997, -0.0001}, {13.1132, -0.0004}, {44.5779, -0.0026}, {133.6592, -0.0354}},
-        {{1.0000, 0.0000}, {2.0001, 0.0000}, {6.7994, 0.0002}, {13.1131, 0.0000}, {44.5818, 0.0048}, {133.6687, 0.0196}},
-        {{1.0000, 0.0000}, {2.0001, 0.0000}, {6.7998, 0.0002}, {13.1136, 0.0005}, {44.5861, 0.0040}, {133.7352, -0.0064}},
-        {{1.0000, 0.0000}, {2.0001, 0.0000}, {6.7996, -0.0007}, {13.1127, -0.0029}, {44.5769, -0.0101}, {133.6867, -0.0516}},
-        {{1.0000, 0.0000}, {2.0001, 0.0001}, {6.8001, -0.0016}, {13.1137, -0.0050}, {44.5896, -0.0288}, {133.7200, -0.1388}},
-        {{1.0000, 0.0000}, {2.0001, 0.0000}, {6.7998, -0.0035}, {13.1131, -0.0116}, {44.5808, -0.0546}, {133.6760, -0.2298}},
-        {{1.0000, 0.0000}, {2.0001, 0.0000}, {6.7998, -0.0069}, {13.1133, -0.0217}, {44.5771, -0.1192}, {133.6899, -0.5866}},
-        {{1.0000, 0.0000}, {2.0000, 0.0001}, {6.7994, -0.0137}, {13.1136, -0.0450}, {44.5759, -0.2506}, {133.6644, -1.2111}},
-        {{1.0000, 0.0000}, {2.0001, 0.0001}, {6.7997, -0.0344}, {13.1122, -0.1134}, {44.5774, -0.6138}, {133.6872, -3.0820}},
-        {{1.0000, 0.0000}, {2.0002, 0.0003}, {6.7988, -0.0685}, {13.1087, -0.2254}, {44.5579, -1.2244}, {133.5124, -6.1650}},
-        {{1.0000, 0.0000}, {2.0002, 0.0004}, {6.7966, -0.1376}, {13.0975, -0.4510}, {44.4771, -2.4406}, {132.5331, -12.6498}},
-        {{1.0000, 0.0000}, {2.0008, 0.0010}, {6.7810, -0.3426}, {13.0175, -1.1196}, {43.9240, -6.0471}, {128.3441, -30.0659}},
-        {{1.0000, 0.0000}, {2.0023, 0.0016}, {6.7233, -0.6808}, {12.7416, -2.1984}, {42.0285, -11.7399}, {113.5212, -55.4039}}};
+        {{1.0000, 0.0000}, {1.9997, -0.0000}, {6.7972, 0.0001}, {13.1090, -0.0003}, {44.5585, 0.0003}, {133.6355, 0.0038}},
+        {{1.0000, 0.0000}, {1.9997, 0.0000}, {6.7972, 0.0000}, {13.1095, -0.0002}, {44.5599, -0.0008}, {133.6377, -0.0076}},
+        {{1.0000, 0.0000}, {1.9999, 0.0001}, {6.7980, -0.0002}, {13.1103, -0.0003}, {44.5641, -0.0037}, {133.6479, -0.0187}},
+        {{1.0000, 0.0000}, {1.9999, 0.0001}, {6.7979, -0.0005}, {13.1102, -0.0020}, {44.5640, -0.0113}, {133.6493, -0.0577}},
+        {{1.0000, 0.0000}, {1.9999, -0.0000}, {6.7980, -0.0013}, {13.1107, -0.0046}, {44.5650, -0.0238}, {133.6510, -0.1229}},
+        {{1.0000, 0.0000}, {1.9999, 0.0000}, {6.7979, -0.0034}, {13.1106, -0.0114}, {44.5645, -0.0609}, {133.6505, -0.3097}},
+        {{1.0000, 0.0000}, {1.9999, 0.0000}, {6.7981, -0.0070}, {13.1101, -0.0225}, {44.5633, -0.1226}, {133.6445, -0.6199}},
+        {{1.0000, 0.0000}, {1.9998, -0.0000}, {6.7976, -0.0140}, {13.1093, -0.0453}, {44.5609, -0.2451}, {133.6346, -1.2396}},
+        {{1.0000, 0.0000}, {1.9998, 0.0001}, {6.7971, -0.0343}, {13.1085, -0.1130}, {44.5530, -0.6120}, {133.5822, -3.0979}},
+        {{1.0000, 0.0000}, {1.9997, 0.0002}, {6.7967, -0.0689}, {13.1049, -0.2259}, {44.5330, -1.2227}, {133.4130, -6.1857}},
+        {{1.0000, 0.0000}, {2.0000, 0.0006}, {6.7942, -0.1367}, {13.0943, -0.4503}, {44.4516, -2.4371}, {132.7488, -12.3140}},
+        {{1.0000, 0.0000}, {2.0002, 0.0017}, {6.7780, -0.3391}, {13.0118, -1.1160}, {43.8993, -6.0265}, {128.2132, -30.0120}},
+        {{1.0000, 0.0000}, {2.0021, 0.0032}, {6.7226, -0.6720}, {12.7422, -2.1885}, {42.0311, -11.6925}, {113.5708, -55.2215}}};
 
     Complex ac_couple_gain[freq_list_length] = {{0.998286, 0.039466}, {0.999757, 0.013260}, {0.999956, 0.003994}, {0.999984, 0.001603}, {0.999986, 0.000801}, {0.999991, 0.000321}, {0.999995, 0.000162}, {0.999990, 0.000088}, {0.999996, 0.000037}, {1.000001, 0.000017}, {1.000003, 0.000013}, {1.000003, -0.000003}, {0.999978, -0.000007}};
 
@@ -108,6 +108,7 @@ void pga_calibration();
 void dac_calibration();
 void ac_couple_calibration();
 void pga_set_gain(LCR_ID_IV id, int gain_id);
+void pga_set_gain_sub(LCR_ID_IV iv_id, int stage_id, int gain_id);
 void tia_set_gain(int gain_id);
 void coupling_set_dc(bool cur, bool pot);
 struct Complex calc_fourier(LCR_ID_IV id, int freq);
@@ -200,8 +201,8 @@ void main_loop()
         while (0) {
             // adc_calibration();
             // dac_calibration();
-            // pga_calibration();
-            ac_couple_calibration();
+            pga_calibration();
+            // ac_couple_calibration();
             delay_ms(5000);
         }
 
@@ -685,33 +686,37 @@ void dac_calibration()
     }
 }
 
+static_assert(pga_list_length == 6);
+
 void pga_calibration()
 {
     printf("Insert 1kOhm resistor\n");
-    bool is_target_v = true;
+    bool is_target_v = false;
     printf("PGA calibration for %c\n", is_target_v ? 'V' : 'I');
     for (int freq_id = 0; freq_id < freq_list_length; ++freq_id) {
         int freq = settings.freq_list[freq_id];
-        printf("{{%.4f,%.4f},", 1.0, 0.0);
-        Complex target_gain = {1.0, 0};
-        for (int target_gain_id = 1; target_gain_id < pga_list_length; ++target_gain_id) {
 
+        Complex measured_gain[2][3] = {};
+
+        for (int target_stage_id = 0; target_stage_id < 2; target_stage_id++) {
             // Source setup
+            int max_gain_id = (target_stage_id == 0) ? 1 : 3;
+            int mid_gain_id = (target_stage_id == 0) ? 0 : 2;
             tia_set_gain(2);
             double v_rms = 1.0;
             while (1) {
                 set_dac_output(freq, v_rms);
-                pga_set_gain(LCR_ID_V, 0);
-                pga_set_gain(LCR_ID_I, 0);  // release vref clampling
+                pga_set_gain(LCR_ID_V, 0);  // release vref clampling
+                pga_set_gain(LCR_ID_I, 0);
                 delay_ms(10);
-                pga_set_gain(LCR_ID_V, is_target_v ? target_gain_id : target_gain_id - 1);
-                pga_set_gain(LCR_ID_I, is_target_v ? target_gain_id - 1 : target_gain_id);
+                pga_set_gain_sub(LCR_ID_V, target_stage_id, is_target_v ? max_gain_id : mid_gain_id);
+                pga_set_gain_sub(LCR_ID_I, target_stage_id, is_target_v ? mid_gain_id : max_gain_id);
                 delay_ms(10);
                 measure_voltage_current(false);
                 if (adc_is_clipping(LCR_ID_I, true)
                     || adc_is_clipping(LCR_ID_V, true)) {
                     v_rms *= 0.9;
-                    if (v_rms < 0.002) {
+                    if (v_rms < 0.04) {
                         printf("\nSource level not converged, clipping %c\n", adc_is_clipping(LCR_ID_I, true) ? 'I' : 'V');
                         break;
                     }
@@ -721,69 +726,75 @@ void pga_calibration()
             }
             delay_ms(100);
 
-            // Ref measurement
-            int ref_gain_id = target_gain_id - 1;
-            pga_set_gain(LCR_ID_V, ref_gain_id);
-            pga_set_gain(LCR_ID_I, ref_gain_id);
-            delay_ms(100);
+            // Measurement
+            Complex ratio_list[4] = {};
 
-            int measurement_cycle = 16;
-            Complex ratio_avg_list[measurement_cycle];
+            for (int target_gain_id = 0; target_gain_id <= max_gain_id; ++target_gain_id) {
 
-            for (int i = 0; i < measurement_cycle; ++i) {
-                measure_voltage_current(false);
-                if (adc_is_clipping(LCR_ID_I, false)
-                    || adc_is_clipping(LCR_ID_V, false)) {
-                    printf("Warn: ADC is clipping\n");
+                int measurement_cycle = 16;
+                Complex ratio_avg_temp[measurement_cycle];
+
+                pga_set_gain_sub(LCR_ID_V, target_stage_id, is_target_v ? target_gain_id : mid_gain_id);
+                pga_set_gain_sub(LCR_ID_I, target_stage_id, is_target_v ? mid_gain_id : target_gain_id);
+                delay_ms(100);
+
+                for (int i = 0; i < measurement_cycle; ++i) {
+                    // printf("%c", target_stage_id ? '#' : '.');
+                    measure_voltage_current(false);
+                    if (adc_is_clipping(LCR_ID_I, false)
+                        || adc_is_clipping(LCR_ID_V, false)) {
+                        printf("Warn: ADC is clipping\n");
+                    }
+
+                    Complex voltage = calc_fourier(LCR_ID_V, freq);
+                    Complex current = calc_fourier(LCR_ID_I, freq);
+
+                    if (voltage.abs < 0.02 * 8192 || current.abs < 0.02 * 8192) {
+                        printf("\nWarn: ADC input is very small: [V,I] %.4f, %.4f\n", voltage.abs, current.abs);
+                    }
+
+                    ratio_avg_temp[i] = is_target_v ? (voltage / current) : (current / voltage);
                 }
+                ratio_list[target_gain_id] = mid(ratio_avg_temp, measurement_cycle);
 
-                Complex voltage = calc_fourier(LCR_ID_V, freq);
-                Complex current = calc_fourier(LCR_ID_I, freq);
-
-                if (voltage.abs < 0.1 * 8192 || current.abs < 0.1 * 8192) {
-                    printf("\nWarn: ADC input is very small: [V,I] %.4f, %.4f\n", voltage.abs, current.abs);
+                if (target_gain_id == 0) {
+                    measured_gain[target_stage_id][target_gain_id] = {1.0, 0};
+                } else {
+                    measured_gain[target_stage_id][target_gain_id] = ratio_list[target_gain_id] / ratio_list[0];
                 }
-
-                ratio_avg_list[i] = is_target_v ? (voltage / current) : (current / voltage);
             }
+        }
 
-            Complex ref_ratio = mid(ratio_avg_list, measurement_cycle);
-
-            // Target measurement
-            if (is_target_v) {
-                pga_set_gain(LCR_ID_V, target_gain_id);
-                pga_set_gain(LCR_ID_I, ref_gain_id);
-            } else {
-                pga_set_gain(LCR_ID_V, ref_gain_id);
-                pga_set_gain(LCR_ID_I, target_gain_id);
-            }
-            delay_ms(100);
-
-            for (int i = 0; i < measurement_cycle; ++i) {
-                measure_voltage_current(false);
-                if (adc_is_clipping(LCR_ID_I, false)
-                    || adc_is_clipping(LCR_ID_V, false)) {
-                    printf("Warn: ADC is clipping\n");
-                }
-
-                Complex voltage = calc_fourier(LCR_ID_V, freq);
-                Complex current = calc_fourier(LCR_ID_I, freq);
-
-                if (voltage.abs < 0.1 * 8192 || current.abs < 0.1 * 8192) {
-                    printf("\nWarn: ADC input is very small: [V,I] %.4f, %.4f\n", voltage.abs, current.abs);
-                }
-
-                ratio_avg_list[i] = is_target_v ? (voltage / current) : (current / voltage);
-            }
-
-            Complex target_ratio = mid(ratio_avg_list, measurement_cycle);
-
+        printf("{");
+        for (int gain_id = 0; gain_id < pga_list_length; ++gain_id) {
             // Gain calculation
-            Complex gain_rel = target_ratio / ref_ratio;
-            target_gain = gain_rel * target_gain;
+            Complex pga_gain = {};
+            switch (gain_id) {
+            case 0:
+                pga_gain = measured_gain[0][0] * measured_gain[1][0];
+                break;
+            case 1:
+                pga_gain = measured_gain[0][0] * measured_gain[1][1];
+                break;
+            case 2:
+                pga_gain = measured_gain[0][0] * measured_gain[1][2];
+                break;
+            case 3:
+                pga_gain = measured_gain[0][1] * measured_gain[1][1];
+                break;
+            case 4:
+                pga_gain = measured_gain[0][1] * measured_gain[1][2];
+                break;
+            case 5:
+                pga_gain = measured_gain[0][1] * measured_gain[1][3];
+                break;
+            default:
+                printf("PGA calibration unexpected\n");
+                break;
+            }
 
-            printf("{%.4f,%.4f}", target_gain.real, target_gain.im);
-            if (target_gain_id + 1 < pga_list_length) {
+            printf("{%.4f,%.4f}", pga_gain.real, pga_gain.im);
+            if (gain_id != pga_list_length - 1) {
                 printf(",");
             }
         }
@@ -831,7 +842,7 @@ void ac_couple_calibration()
             measure_voltage_current(false);
             if (adc_is_clipping(LCR_ID_I, false)
                 || adc_is_clipping(LCR_ID_V, false)) {
-                printf("Warn: ADC is clipping\n");
+                printf("\nWarn: ADC is clipping\n");
             }
             Complex voltage = calc_fourier(LCR_ID_V, freq);
             Complex current = calc_fourier(LCR_ID_I, freq);
