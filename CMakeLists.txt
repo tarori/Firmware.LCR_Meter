@@ -33,7 +33,7 @@ set(COMMON_COMPILER_FLAGS "-mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=ha
 set(CMAKE_C_FLAGS "${COMMON_COMPILER_FLAGS} -std=gnu11")
 set(CMAKE_C_FLAGS_DEBUG "-g")
 set(CMAKE_FLAGS_RELEASE "")
-set(CMAKE_CXX_FLAGS "${COMMON_COMPILER_FLAGS} -std=gnu++17")
+set(CMAKE_CXX_FLAGS "${COMMON_COMPILER_FLAGS} -std=gnu++17 -fno-exceptions")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "")
 set(CMAKE_ASM_FLAGS "${COMMON_COMPILER_FLAGS} -x assembler-with-cpp")

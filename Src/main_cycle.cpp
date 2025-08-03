@@ -158,6 +158,7 @@ void main_loop()
     int vrms_id = 0;
     bool dac_changed = true;
     bool dc_couple = true;
+    bool lcd_backlight = false;
     TIM4->CNT -= 4 * ((TIM4->CNT / 4 - freq_id) % freq_list_length);
     double v_rms = 1.0;
     TIM3->CNT = INT16_MAX + 4 * (v_rms / 0.1);
@@ -168,24 +169,33 @@ void main_loop()
         int freq_id_new = (TIM4->CNT / 4) % freq_list_length;
         if (freq_id != freq_id_new) {
             dac_changed = true;
-            freq_id = freq_id_new;
         }
 
         int vrms_id_new = ((int32_t)TIM3->CNT - INT16_MAX) / 4;
         if (vrms_id_new != vrms_id) {
+            dac_changed = true;
+        }
+
+        if (dac_changed) {
+            freq_id = freq_id_new;
             v_rms = vrms_id_new * 0.1;
             if (v_rms <= 0) {
                 v_rms = 0.05;
             }
             vrms_id = vrms_id_new;
-            dac_changed = true;
         }
 
-        if (button2_pushed) {
-            button2_pushed = false;
+        if (button1_pushed) {
+            button1_pushed = false;
             dc_couple = !dc_couple;
             coupling_set_dc(dc_couple, dc_couple);
             dac_changed = true;
+        }
+
+        if (button3_pushed) {
+            button3_pushed = false;
+            lcd_backlight = !lcd_backlight;
+            set_backlight(lcd_backlight);
         }
 
         if (dac_changed) {
@@ -273,8 +283,8 @@ void main_loop()
 
         /* Probe compensation */
         double omega = 2 * M_PI * freq;
-        if (button3_pushed) {
-            button3_pushed = false;
+        if (button2_pushed) {
+            button2_pushed = false;
             if (impedance.abs < 10.0) {
                 // Short Compensation
                 double inductance = impedance.im / omega;
@@ -478,13 +488,15 @@ bool initialize_adc()
     CLEAR_BIT(((DMA_Stream_TypeDef*)hadc2.DMA_Handle->Instance)->CR, DMA_IT_TC | DMA_IT_HT);
 
     /* Stop DMA and ADC*/
-    CLEAR_BIT(((DMA_Stream_TypeDef*)hadc1.DMA_Handle->Instance)->CR, DMA_SxCR_EN);
-    CLEAR_BIT(((DMA_Stream_TypeDef*)hadc2.DMA_Handle->Instance)->CR, DMA_SxCR_EN);
-
     SET_BIT(hadc1.Instance->CR, ADC_CR_ADSTP);
     while (READ_BIT(hadc1.Instance->CR, ADC_CR_ADSTP));
     SET_BIT(hadc2.Instance->CR, ADC_CR_ADSTP);
     while (READ_BIT(hadc2.Instance->CR, ADC_CR_ADSTP));
+
+    CLEAR_BIT(((DMA_Stream_TypeDef*)hadc1.DMA_Handle->Instance)->CR, DMA_SxCR_EN);
+    while (READ_BIT(((DMA_Stream_TypeDef*)hadc1.DMA_Handle->Instance)->CR, DMA_SxCR_EN));
+    CLEAR_BIT(((DMA_Stream_TypeDef*)hadc2.DMA_Handle->Instance)->CR, DMA_SxCR_EN);
+    while (READ_BIT(((DMA_Stream_TypeDef*)hadc2.DMA_Handle->Instance)->CR, DMA_SxCR_EN));
 
     /* Configure ADC synchronization */
     SET_BIT(ADC12_COMMON->CCR, ADC_DUALMODE_REGSIMULT);
@@ -1182,5 +1194,6 @@ void DMA1_Stream2_IRQHandler(void)
 void DMA1_Stream3_IRQHandler(void)
 {
     HAL_DMA_IRQHandler(&hdma_dac1_ch2);
+    printf("DMA1_Stream3_IRQHandler\n");
 }
 }
