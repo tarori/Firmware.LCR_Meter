@@ -29,7 +29,7 @@ enum LCR_ID_IV {
 
 // DAC
 constexpr uint32_t dac_dma_buf_len = 40000;
-__attribute__((section(".RAM_DMA"))) uint16_t dac_dma_buffer[2][dac_dma_buf_len];
+__attribute__((section(".RAM_DMA"))) uint16_t dac_dma_buffer[dac_dma_buf_len];
 double dac_sampling_freq = 0;
 
 // ADC
@@ -469,10 +469,10 @@ void measure_voltage_current(bool is_short)
 bool initialize_adc()
 {
     int hal_state = HAL_OK;
-    hal_state |= HAL_ADCEx_LinearCalibration_SetValue(&hadc1, settings.adc1_linearity_cal);
-    hal_state |= HAL_ADCEx_LinearCalibration_SetValue(&hadc2, settings.adc2_linearity_cal);
-    // hal_state |= HAL_ADCEx_LinearCalibration_FactorLoad(&hadc1);
-    // hal_state |= HAL_ADCEx_LinearCalibration_FactorLoad(&hadc2);
+    // hal_state |= HAL_ADCEx_LinearCalibration_SetValue(&hadc1, settings.adc1_linearity_cal);
+    // hal_state |= HAL_ADCEx_LinearCalibration_SetValue(&hadc2, settings.adc2_linearity_cal);
+    hal_state |= HAL_ADCEx_LinearCalibration_FactorLoad(&hadc1);
+    hal_state |= HAL_ADCEx_LinearCalibration_FactorLoad(&hadc2);
     // hal_state |= HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET_LINEARITY, ADC_DIFFERENTIAL_ENDED);
     // hal_state |= HAL_ADCEx_Calibration_Start(&hadc2, ADC_CALIB_OFFSET_LINEARITY, ADC_DIFFERENTIAL_ENDED);
     hal_state |= HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET, ADC_DIFFERENTIAL_ENDED);
@@ -514,10 +514,8 @@ bool initialize_adc()
 bool initialize_dac_tim()
 {
     int hal_state = HAL_OK;
-    hal_state |= HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)&dac_dma_buffer[0][0], dac_dma_buf_len, DAC_ALIGN_12B_R);
-    hal_state |= HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, (uint32_t*)&dac_dma_buffer[1][0], dac_dma_buf_len, DAC_ALIGN_12B_R);
+    hal_state |= HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)&dac_dma_buffer[0], dac_dma_buf_len, DAC_ALIGN_12B_R);
     CLEAR_BIT(((DMA_Stream_TypeDef*)hdac1.DMA_Handle1->Instance)->CR, DMA_IT_TC | DMA_IT_HT);
-    CLEAR_BIT(((DMA_Stream_TypeDef*)hdac1.DMA_Handle2->Instance)->CR, DMA_IT_TC | DMA_IT_HT);
 
     delay_ms(10);
 
@@ -586,27 +584,25 @@ double set_dac_output(int freq, double v_rms)
         v_rms = 1.5;
     }
 
-    uint32_t rand_seed = 0;
+    // uint32_t rand_seed = 0;
     // HAL_RNG_GenerateRandomNumber(&hrng, &rand_seed);
-    srand(rand_seed);
-    srand(rand());
+    // srand(rand_seed);
+    // srand(rand());
 
     /* No dither */
-    /*
     for (uint32_t i = 0; i < dac_dma_buf_len; ++i) {
         double dac_code_ideal = 2043.0 + 1173.0 * v_rms * my_fast_sin(2 * M_PI * i * freq / (double)dac_sampling_freq);
-        dac_dma_buffer[0][i] = dac_code_ideal;
-        dac_dma_buffer[1][i] = dac_code_ideal + 0.5;
+        dac_dma_buffer[i] = dac_code_ideal;
     }
-    */
 
     /* Constant dither */
+    /*
     for (uint32_t i = 0; i < dac_dma_buf_len; ++i) {
         double dither = ((rand() % 16384) - 8192) / 16384.0;
         double dac_code_ideal = 2034.0 + 1173.0 * v_rms * my_fast_sin(2 * M_PI * i * freq / (double)dac_sampling_freq) + dither;
-        dac_dma_buffer[0][i] = dac_code_ideal;
-        dac_dma_buffer[1][i] = dac_code_ideal + 0.5;
+        dac_dma_buffer[i] = dac_code_ideal;
     }
+    */
     // SCB_CleanDCache();
 
     /* Dither shaping */
@@ -620,7 +616,7 @@ double set_dac_output(int freq, double v_rms)
         double dac_error = dac_code - dac_code_ideal;
         dac_error_integ += dac_error;
         if (i >= 0) {
-            dac_dma_buffer[0][i] = dac_code;
+            dac_dma_buffer[i] = dac_code;
         }
     }
     */
@@ -1159,7 +1155,6 @@ void SysTick_Handler(void)
 extern DMA_HandleTypeDef hdma_adc1;
 extern DMA_HandleTypeDef hdma_adc2;
 extern DMA_HandleTypeDef hdma_dac1_ch1;
-extern DMA_HandleTypeDef hdma_dac1_ch2;
 
 /**
  * @brief This function handles DMA1 stream0 global interrupt.
@@ -1186,14 +1181,5 @@ void DMA1_Stream2_IRQHandler(void)
 {
     HAL_DMA_IRQHandler(&hdma_dac1_ch1);
     printf("DMA1_Stream2_IRQHandler\n");
-}
-
-/**
- * @brief This function handles DMA1 stream3 global interrupt.
- */
-void DMA1_Stream3_IRQHandler(void)
-{
-    HAL_DMA_IRQHandler(&hdma_dac1_ch2);
-    printf("DMA1_Stream3_IRQHandler\n");
 }
 }
