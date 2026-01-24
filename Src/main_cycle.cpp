@@ -265,7 +265,7 @@ void main_loop()
             }
         }
 
-        // adc_data_dump();
+        adc_data_dump();
 
         /* Real measurement */
         measure_voltage_current(false);
@@ -445,18 +445,33 @@ void main_loop()
 void measure_voltage_current(bool is_short)
 {
     ScopedLock lock;
-    uint16_t dma_current_ptr = dma_get_last_index(&hadc1, adc_dma_buf_len);
-    uint16_t dma_next_read = dma_current_ptr;
     uint32_t write_ptr = 0;
-    while (write_ptr < (is_short ? adc_data_buf_len / 10 : adc_data_buf_len)) {
-        while (dma_next_read == dma_current_ptr) {
-            dma_current_ptr = dma_get_last_index(&hadc1, adc_dma_buf_len);
-        }
 
-        adc_data_buffer[LCR_ID_I][write_ptr] = adc_dma_buffer[LCR_ID_I][dma_next_read];
-        adc_data_buffer[LCR_ID_V][write_ptr] = adc_dma_buffer[LCR_ID_V][dma_next_read];
-        dma_next_read = (dma_next_read + 1) % adc_dma_buf_len;
+    // Dummy read
+    for (uint32_t i = 0; i < 10; ++i) {
+        while (!READ_BIT(ADC1->ISR, ADC_ISR_EOC));
+        ADC1->ISR = ADC_ISR_EOC | ADC_ISR_OVR;
+        ADC2->ISR = ADC_ISR_EOC | ADC_ISR_OVR;
+    }
+
+    // Read conversion results
+    while (write_ptr < (is_short ? adc_data_buf_len / 10 : adc_data_buf_len)) {
+        while (!READ_BIT(ADC1->ISR, ADC_ISR_EOC));
+
+        // uint32_t val = ADC12_COMMON->CDR;
+        // adc_data_buffer[LCR_ID_I][write_ptr] = val & 0xFFFF;
+        // adc_data_buffer[LCR_ID_V][write_ptr] = val >> 16;
+
+        adc_data_buffer[LCR_ID_I][write_ptr] = ADC1->DR;
+        adc_data_buffer[LCR_ID_V][write_ptr] = ADC2->DR;
         ++write_ptr;
+
+        ADC1->ISR = ADC_ISR_EOC;
+    }
+
+    if (READ_BIT(ADC1->ISR, ADC_ISR_OVR)) {
+        printf("ADC Overrun!\n");
+        while (1);
     }
 
     while (write_ptr < adc_data_buf_len) {
@@ -481,32 +496,11 @@ bool initialize_adc()
 
     // adc_calibration_dump();
 
-    /* Initialize DMA */
-    hal_state |= HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_dma_buffer[LCR_ID_I], adc_dma_buf_len);
-    hal_state |= HAL_ADC_Start_DMA(&hadc2, (uint32_t*)adc_dma_buffer[LCR_ID_V], adc_dma_buf_len);
-    CLEAR_BIT(((DMA_Stream_TypeDef*)hadc1.DMA_Handle->Instance)->CR, DMA_IT_TC | DMA_IT_HT);
-    CLEAR_BIT(((DMA_Stream_TypeDef*)hadc2.DMA_Handle->Instance)->CR, DMA_IT_TC | DMA_IT_HT);
-
-    /* Stop DMA and ADC*/
-    SET_BIT(hadc1.Instance->CR, ADC_CR_ADSTP);
-    while (READ_BIT(hadc1.Instance->CR, ADC_CR_ADSTP));
-    SET_BIT(hadc2.Instance->CR, ADC_CR_ADSTP);
-    while (READ_BIT(hadc2.Instance->CR, ADC_CR_ADSTP));
-
-    CLEAR_BIT(((DMA_Stream_TypeDef*)hadc1.DMA_Handle->Instance)->CR, DMA_SxCR_EN);
-    while (READ_BIT(((DMA_Stream_TypeDef*)hadc1.DMA_Handle->Instance)->CR, DMA_SxCR_EN));
-    CLEAR_BIT(((DMA_Stream_TypeDef*)hadc2.DMA_Handle->Instance)->CR, DMA_SxCR_EN);
-    while (READ_BIT(((DMA_Stream_TypeDef*)hadc2.DMA_Handle->Instance)->CR, DMA_SxCR_EN));
-
-    /* Configure ADC synchronization */
-    SET_BIT(ADC12_COMMON->CCR, ADC_DUALMODE_REGSIMULT);
-
-    /* Restart DMA and ADC */
-    ((DMA_Stream_TypeDef*)hadc1.DMA_Handle->Instance)->NDTR = adc_dma_buf_len;
-    ((DMA_Stream_TypeDef*)hadc2.DMA_Handle->Instance)->NDTR = adc_dma_buf_len;
-    SET_BIT(((DMA_Stream_TypeDef*)hadc1.DMA_Handle->Instance)->CR, DMA_SxCR_EN);
-    SET_BIT(((DMA_Stream_TypeDef*)hadc2.DMA_Handle->Instance)->CR, DMA_SxCR_EN);
-    SET_BIT(hadc1.Instance->CR, ADC_CR_ADSTART);
+    /* Start conversion */
+    MODIFY_REG(ADC12_COMMON->CCR, ADC_CCR_DAMDF, ADC_DUALMODEDATAFORMAT_32_10_BITS);
+    HAL_ADC_Start(&hadc2);
+    HAL_ADC_Start(&hadc1);
+    printf("0x%04lx\n", ADC12_COMMON->CCR);
 
     return hal_state != HAL_OK;
 }
@@ -1152,27 +1146,7 @@ void SysTick_Handler(void)
     HAL_IncTick();
 }
 
-extern DMA_HandleTypeDef hdma_adc1;
-extern DMA_HandleTypeDef hdma_adc2;
 extern DMA_HandleTypeDef hdma_dac1_ch1;
-
-/**
- * @brief This function handles DMA1 stream0 global interrupt.
- */
-void DMA1_Stream0_IRQHandler(void)
-{
-    HAL_DMA_IRQHandler(&hdma_adc2);
-    printf("DMA1_Stream0_IRQHandler\n");
-}
-
-/**
- * @brief This function handles DMA1 stream1 global interrupt.
- */
-void DMA1_Stream1_IRQHandler(void)
-{
-    HAL_DMA_IRQHandler(&hdma_adc1);
-    printf("DMA1_Stream1_IRQHandler\n");
-}
 
 /**
  * @brief This function handles DMA1 stream2 global interrupt.
