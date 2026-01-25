@@ -33,8 +33,6 @@ __attribute__((section(".RAM_DMA"))) uint16_t dac_dma_buffer[dac_dma_buf_len];
 double dac_sampling_freq = 0;
 
 // ADC
-constexpr uint32_t adc_dma_buf_len = 256;
-__attribute__((section(".RAM_DMA"))) uint16_t adc_dma_buffer[2][adc_dma_buf_len];
 constexpr uint32_t adc_data_buf_len = 27600;
 __attribute__((section(".RAM_DATA"))) uint16_t adc_data_buffer[2][adc_data_buf_len];
 constexpr double adc_sampling_freq = 12e+6 * 23 / 250;
@@ -53,54 +51,54 @@ struct Settings {
     double short_resistance = 0.0;
     double short_inductance = 0.0e-6;
     double open_resistance = 1.0e+24;
-    double open_capacitance = 0.086e-12;
+    double open_capacitance = 0.000e-12;
 
     int pga_gain_disp[pga_list_length] = {1, 2, 6, 13, 42, 135};
 
     Complex pga_v_gain_table[freq_list_length][pga_list_length] = {
-        {{1.0000, 0.0000}, {2.0001, 0.0001}, {6.7999, -0.0002}, {13.1134, 0.0009}, {44.5816, -0.0000}, {133.7675, 0.0061}},
-        {{1.0000, 0.0000}, {2.0002, 0.0001}, {6.7996, 0.0003}, {13.1140, -0.0000}, {44.5798, 0.0007}, {133.7651, -0.0036}},
-        {{1.0000, 0.0000}, {2.0003, -0.0000}, {6.7995, -0.0001}, {13.1146, -0.0006}, {44.5808, -0.0016}, {133.7725, -0.0186}},
-        {{1.0000, 0.0000}, {2.0003, 0.0000}, {6.7998, -0.0005}, {13.1144, -0.0019}, {44.5815, -0.0102}, {133.7731, -0.0535}},
-        {{1.0000, 0.0000}, {2.0003, -0.0001}, {6.7996, -0.0009}, {13.1148, -0.0058}, {44.5800, -0.0241}, {133.7828, -0.1354}},
-        {{1.0000, 0.0000}, {2.0002, -0.0000}, {6.7999, -0.0040}, {13.1138, -0.0112}, {44.5819, -0.0632}, {133.7762, -0.3110}},
-        {{1.0000, 0.0000}, {2.0001, 0.0000}, {6.7993, -0.0066}, {13.1139, -0.0223}, {44.5807, -0.1190}, {133.7828, -0.6147}},
-        {{1.0000, 0.0000}, {2.0003, 0.0000}, {6.8001, -0.0137}, {13.1151, -0.0450}, {44.5842, -0.2438}, {133.7777, -1.2353}},
-        {{1.0000, 0.0000}, {2.0002, -0.0000}, {6.7997, -0.0342}, {13.1133, -0.1137}, {44.5757, -0.6107}, {133.7078, -3.0964}},
-        {{1.0000, 0.0000}, {2.0002, 0.0003}, {6.7986, -0.0685}, {13.1103, -0.2252}, {44.5523, -1.2219}, {133.5517, -6.1842}},
-        {{1.0000, 0.0000}, {1.9998, 0.0007}, {6.7943, -0.1358}, {13.0943, -0.4478}, {44.4565, -2.4263}, {132.8275, -12.2702}},
-        {{1.0000, 0.0000}, {2.0004, 0.0016}, {6.7782, -0.3391}, {13.0157, -1.1175}, {43.9085, -6.0272}, {128.3273, -30.0097}},
-        {{1.0000, 0.0000}, {2.0023, 0.0033}, {6.7244, -0.6712}, {12.7427, -2.1938}, {42.0398, -11.7087}, {113.6299, -55.3151}}};
+        {{1.0000, 0.0000}, {1.9999, 0.0002}, {6.7982, 0.0003}, {13.1151, 0.0014}, {44.5825, 0.0022}, {133.7893, 0.0136}},
+        {{1.0000, 0.0000}, {2.0001, 0.0000}, {6.7991, -0.0001}, {13.1170, -0.0001}, {44.5897, -0.0016}, {133.8128, -0.0070}},
+        {{1.0000, 0.0000}, {2.0001, -0.0000}, {6.7989, -0.0004}, {13.1167, -0.0010}, {44.5886, -0.0049}, {133.8116, -0.0226}},
+        {{1.0000, 0.0000}, {2.0001, -0.0001}, {6.7989, -0.0007}, {13.1168, -0.0021}, {44.5885, -0.0101}, {133.8104, -0.0516}},
+        {{1.0000, 0.0000}, {2.0001, 0.0000}, {6.7991, -0.0012}, {13.1171, -0.0035}, {44.5899, -0.0200}, {133.8129, -0.1019}},
+        {{1.0000, 0.0000}, {2.0001, 0.0000}, {6.7990, -0.0033}, {13.1170, -0.0086}, {44.5892, -0.0508}, {133.8128, -0.2633}},
+        {{1.0000, 0.0000}, {2.0001, -0.0000}, {6.7991, -0.0064}, {13.1170, -0.0179}, {44.5902, -0.1014}, {133.8148, -0.5270}},
+        {{1.0000, 0.0000}, {2.0000, -0.0000}, {6.7989, -0.0126}, {13.1165, -0.0352}, {44.5878, -0.2017}, {133.8046, -1.0509}},
+        {{1.0000, 0.0000}, {2.0001, -0.0002}, {6.7989, -0.0317}, {13.1167, -0.0886}, {44.5863, -0.5053}, {133.7774, -2.6288}},
+        {{1.0000, 0.0000}, {2.0001, -0.0004}, {6.7986, -0.0635}, {13.1152, -0.1777}, {44.5745, -1.0117}, {133.6597, -5.2600}},
+        {{1.0000, 0.0000}, {2.0001, -0.0006}, {6.7961, -0.1267}, {13.1088, -0.3542}, {44.5192, -2.0214}, {133.1709, -10.4916}},
+        {{1.0000, 0.0000}, {2.0004, -0.0014}, {6.7821, -0.3153}, {13.0629, -0.8835}, {44.1532, -5.0238}, {129.8579, -25.7727}},
+        {{1.0000, 0.0000}, {2.0012, -0.0027}, {6.7334, -0.6248}, {12.9008, -1.7546}, {42.8721, -9.8723}, {118.7880, -48.5016}}};
 
     Complex pga_i_gain_table[freq_list_length][pga_list_length] = {
-        {{1.0000, 0.0000}, {1.9998, 0.0001}, {6.7969, 0.0002}, {13.1099, 0.0009}, {44.5572, 0.0008}, {133.6294, 0.0071}},
-        {{1.0000, 0.0000}, {1.9998, 0.0001}, {6.7973, -0.0002}, {13.1100, 0.0008}, {44.5609, -0.0015}, {133.6424, -0.0027}},
-        {{1.0000, 0.0000}, {1.9999, -0.0001}, {6.7978, 0.0000}, {13.1105, -0.0015}, {44.5639, -0.0029}, {133.6489, -0.0241}},
-        {{1.0000, 0.0000}, {1.9998, 0.0001}, {6.7979, -0.0008}, {13.1103, -0.0018}, {44.5645, -0.0132}, {133.6540, -0.0612}},
-        {{1.0000, 0.0000}, {1.9999, 0.0001}, {6.7981, -0.0015}, {13.1105, -0.0041}, {44.5653, -0.0252}, {133.6498, -0.1279}},
-        {{1.0000, 0.0000}, {1.9999, -0.0001}, {6.7975, -0.0038}, {13.1103, -0.0123}, {44.5603, -0.0639}, {133.6411, -0.3174}},
-        {{1.0000, 0.0000}, {2.0002, -0.0001}, {6.7984, -0.0075}, {13.1128, -0.0238}, {44.5684, -0.1271}, {133.6580, -0.6318}},
-        {{1.0000, 0.0000}, {1.9998, 0.0002}, {6.7981, -0.0137}, {13.1099, -0.0443}, {44.5649, -0.2457}, {133.6454, -1.2396}},
-        {{1.0000, 0.0000}, {1.9997, 0.0001}, {6.7972, -0.0345}, {13.1085, -0.1130}, {44.5545, -0.6132}, {133.5879, -3.0926}},
-        {{1.0000, 0.0000}, {1.9999, 0.0003}, {6.7974, -0.0681}, {13.1072, -0.2252}, {44.5420, -1.2187}, {133.4349, -6.1718}},
-        {{1.0000, 0.0000}, {2.0001, 0.0003}, {6.7949, -0.1378}, {13.0960, -0.4532}, {44.4595, -2.4482}, {132.7574, -12.3433}},
-        {{1.0000, 0.0000}, {2.0006, 0.0018}, {6.7786, -0.3392}, {13.0146, -1.1164}, {43.9019, -6.0280}, {128.2368, -30.0134}},
-        {{1.0000, 0.0000}, {2.0021, 0.0032}, {6.7226, -0.6715}, {12.7417, -2.1913}, {42.0306, -11.6994}, {113.5943, -55.2230}}};
+        {{1.0000, 0.0000}, {1.9989, 0.0000}, {6.7970, 0.0001}, {13.0975, 0.0000}, {44.5366, -0.0001}, {133.5888, 0.0053}},
+        {{1.0000, 0.0000}, {1.9988, 0.0000}, {6.7964, -0.0001}, {13.0975, -0.0001}, {44.5349, -0.0012}, {133.5899, -0.0102}},
+        {{1.0000, 0.0000}, {1.9989, -0.0000}, {6.7969, -0.0002}, {13.0978, -0.0010}, {44.5377, -0.0041}, {133.5980, -0.0242}},
+        {{1.0000, 0.0000}, {1.9989, -0.0000}, {6.7972, -0.0008}, {13.0984, -0.0017}, {44.5397, -0.0106}, {133.6031, -0.0523}},
+        {{1.0000, 0.0000}, {1.9989, -0.0000}, {6.7968, -0.0013}, {13.0979, -0.0037}, {44.5364, -0.0213}, {133.5945, -0.1078}},
+        {{1.0000, 0.0000}, {1.9988, -0.0000}, {6.7967, -0.0032}, {13.0976, -0.0090}, {44.5360, -0.0514}, {133.5917, -0.2619}},
+        {{1.0000, 0.0000}, {1.9988, -0.0001}, {6.7965, -0.0065}, {13.0968, -0.0180}, {44.5331, -0.1025}, {133.5807, -0.5226}},
+        {{1.0000, 0.0000}, {1.9989, 0.0000}, {6.7969, -0.0124}, {13.0975, -0.0352}, {44.5361, -0.2011}, {133.5888, -1.0381}},
+        {{1.0000, 0.0000}, {1.9989, -0.0002}, {6.7964, -0.0315}, {13.0974, -0.0890}, {44.5313, -0.5050}, {133.5544, -2.6043}},
+        {{1.0000, 0.0000}, {1.9989, -0.0002}, {6.7961, -0.0623}, {13.0952, -0.1771}, {44.5169, -1.0047}, {133.4291, -5.1885}},
+        {{1.0000, 0.0000}, {1.9988, -0.0005}, {6.7937, -0.1244}, {13.0879, -0.3544}, {44.4627, -2.0079}, {132.9583, -10.3493}},
+        {{1.0000, 0.0000}, {1.9989, -0.0011}, {6.7795, -0.3103}, {13.0413, -0.8824}, {44.0974, -4.9936}, {129.7168, -25.4383}},
+        {{1.0000, 0.0000}, {2.0001, -0.0023}, {6.7330, -0.6158}, {12.8803, -1.7572}, {42.8285, -9.8320}, {118.9147, -48.0196}}};
 
-    Complex ac_couple_gain[freq_list_length] = {{0.998320, 0.038187}, {0.999793, 0.012714}, {0.999963, 0.003824}, {0.999978, 0.001526}, {1.000000, 0.000765}, {1.000001, 0.000319}, {0.999997, 0.000170}, {0.999998, 0.000078}, {0.999980, 0.000035}, {1.000012, 0.000030}, {1.000011, 0.000000}, {0.999985, 0.000002}, {0.999967, -0.000017}};
+    Complex ac_couple_gain[freq_list_length] = {{0.999456, 0.020259}, {0.999912, 0.006790}, {0.999979, 0.002048}, {0.999997, 0.000820}, {0.999995, 0.000409}, {1.000004, 0.000172}, {1.000008, 0.000076}, {1.000017, 0.000047}, {1.000003, 0.000011}, {0.999997, -0.000000}, {0.999974, 0.000001}, {1.000013, 0.000006}, {0.999992, 0.000008}};
 
     double tia_res_table[tia_list_length] = {20, 100, 1000, 10000};
-    double tia_cap_table[tia_list_length] = {-50e-12, 11.5e-12, 10.2e-12, 1.4e-12};
+    double tia_cap_table[tia_list_length] = {0e-12, 10e-12, 10e-12, 10e-12};
 
-    uint32_t adc1_linearity_cal[ADC_LINEAR_CALIB_REG_COUNT] = {0x20080201, 0x20180201, 0x2007ea04, 0x2027f5ff, 0x1fe801fe, 0x020a};
-    uint32_t adc2_linearity_cal[ADC_LINEAR_CALIB_REG_COUNT] = {0x1ff7f9ff, 0x201809ff, 0x20080a02, 0x20180e00, 0x2007f9ff, 0x0200};
+    uint32_t adc1_linearity_cal[ADC_LINEAR_CALIB_REG_COUNT] = {0x20080e02, 0x20180201, 0x2017f9fe, 0x200801ff, 0x20081200, 0x01ff};
+    uint32_t adc2_linearity_cal[ADC_LINEAR_CALIB_REG_COUNT] = {0x200801ff, 0x20280200, 0x1ff805ff, 0x201809ff, 0x201809ff, 0x01ff};
 } settings;
 
 SMR12864 lcd;
 
 bool initialize_adc();
 bool initialize_dac_tim();
-double set_dac_output(int freq, double v_rms);
+double set_dac_output(int freq, double vdac_pp);
 void measure_voltage_current(bool is_short);
 bool adc_is_clipping(LCR_ID_IV id, bool strict);
 double read_battery_voltage();
@@ -155,13 +153,13 @@ void main_loop()
 
     int freq = 0;
     int freq_id = 9;  // 100kHz Default
-    int vrms_id = 0;
+    int vdac_id = 0;
     bool dac_changed = true;
     bool dc_couple = true;
     bool lcd_backlight = false;
     TIM4->CNT -= 4 * ((TIM4->CNT / 4 - freq_id) % freq_list_length);
-    double v_rms = 1.0;
-    TIM3->CNT = INT16_MAX + 4 * (v_rms / 0.1);
+    double v_dac = 2.0;
+    TIM3->CNT = INT16_MAX + 4 * (v_dac / 0.1);
 
     init_done = true;
     while (1) {
@@ -171,22 +169,22 @@ void main_loop()
             dac_changed = true;
         }
 
-        int vrms_id_new = ((int32_t)TIM3->CNT - INT16_MAX) / 4;
-        if (vrms_id_new != vrms_id) {
+        int vdac_id_new = ((int32_t)TIM3->CNT - INT16_MAX) / 4;
+        if (vdac_id_new != vdac_id) {
             dac_changed = true;
         }
 
         if (dac_changed) {
             freq_id = freq_id_new;
-            v_rms = vrms_id_new * 0.1;
-            if (v_rms <= 0) {
-                v_rms = 0.05;
+            v_dac = vdac_id_new * 0.1;
+            if (v_dac <= 0) {
+                v_dac = 0.1;
             }
-            vrms_id = vrms_id_new;
+            vdac_id = vdac_id_new;
         }
 
-        if (button1_pushed) {
-            button1_pushed = false;
+        if (button2_pushed) {
+            button2_pushed = false;
             dc_couple = !dc_couple;
             coupling_set_dc(dc_couple, dc_couple);
             dac_changed = true;
@@ -201,7 +199,7 @@ void main_loop()
         if (dac_changed) {
             freq = settings.freq_list[freq_id];
             delaymeas_start();
-            v_rms = set_dac_output(freq, v_rms);
+            v_dac = set_dac_output(freq, v_dac);
             delaymeas_end();
             dac_changed = false;
         }
@@ -265,7 +263,7 @@ void main_loop()
             }
         }
 
-        adc_data_dump();
+        // adc_data_dump();
 
         /* Real measurement */
         measure_voltage_current(false);
@@ -283,8 +281,8 @@ void main_loop()
 
         /* Probe compensation */
         double omega = 2 * M_PI * freq;
-        if (button2_pushed) {
-            button2_pushed = false;
+        if (button1_pushed) {
+            button1_pushed = false;
             if (impedance.abs < 10.0) {
                 // Short Compensation
                 double inductance = impedance.im / omega;
@@ -325,15 +323,15 @@ void main_loop()
         double capacitance = sp_mode ? -1.0 / (impedance.im * omega) : conductance.im / omega;
 
         if (abs(capacitance) > 1.0e-8) {
-            printf("R: %.4fOhm, L: %.4fuH, C: %.4fuF, Z: %.4fOhm, BAT: %.3fV\n",
+            printf("R: %.4f Ohm, L: %.4f uH, C: %.4f uF, Z: %.4f Ohm, BAT: %.3f V\n",
                 resistance, inductance * 1.0e+6, capacitance * 1.0e+6, impedance.abs, battery_voltage);
         } else {
-            printf("R: %.4fOhm, L: %.4fuH, C: %.5fpF, Z: %.4fOhm, BAT: %.3fV\n",
+            printf("R: %.4f Ohm, L: %.4f uH, C: %.5f pF, Z: %.4f Ohm, BAT: %.3f V\n",
                 resistance, inductance * 1.0e+6, capacitance * 1.0e+12, impedance.abs, battery_voltage);
         }
 
         lcd.cls();
-        lcd.printf("%5d%s %4.2fVrms %s", freq < 1000 ? freq : freq / 1000, freq < 1000 ? "Hz" : "kHz", v_rms, dc_couple ? "DC" : "AC");
+        lcd.printf("%5d%s %4.2fVpp %s", freq < 1000 ? freq : freq / 1000, freq < 1000 ? "Hz" : "kHz", v_dac, dc_couple ? "DC" : "AC");
 
         lcd.locate(1, 6);
         lcd.printf("B:%3.1fV  Z:", battery_voltage);
@@ -356,7 +354,7 @@ void main_loop()
         }
 
         lcd.locate(2, 6);
-        lcd.printf("TIA:%d PGA:[x%d,x%d]", tia_gain_id, settings.pga_gain_disp[pga_i_gain_id], settings.pga_gain_disp[pga_v_gain_id]);
+        lcd.printf("TIA:%d PGA:Ix%d,Vx%d", tia_gain_id, settings.pga_gain_disp[pga_i_gain_id], settings.pga_gain_disp[pga_v_gain_id]);
 
         lcd.locate(3, 6);
         lcd.set_fontsize(16);
@@ -437,7 +435,7 @@ void main_loop()
             }
 
             double theta_deg = 360.0 / (2 * PI) * atan2(abs(impedance.im), abs(impedance.real));
-            lcd.printf(" %5.2fdeg", theta_deg);
+            lcd.printf(" %6.3fdeg", theta_deg);
         }
     }
 }
@@ -458,22 +456,23 @@ void measure_voltage_current(bool is_short)
     while (write_ptr < (is_short ? adc_data_buf_len / 10 : adc_data_buf_len)) {
         while (!READ_BIT(ADC1->ISR, ADC_ISR_EOC));
 
-        // uint32_t val = ADC12_COMMON->CDR;
-        // adc_data_buffer[LCR_ID_I][write_ptr] = val & 0xFFFF;
-        // adc_data_buffer[LCR_ID_V][write_ptr] = val >> 16;
-
-        adc_data_buffer[LCR_ID_I][write_ptr] = ADC1->DR;
-        adc_data_buffer[LCR_ID_V][write_ptr] = ADC2->DR;
+        uint32_t val = ADC12_COMMON->CDR;
+        adc_data_buffer[LCR_ID_I][write_ptr] = val & 0xFFFF;
+        adc_data_buffer[LCR_ID_V][write_ptr] = val >> 16;
         ++write_ptr;
 
         ADC1->ISR = ADC_ISR_EOC;
     }
 
+    // Overrun check
     if (READ_BIT(ADC1->ISR, ADC_ISR_OVR)) {
-        printf("ADC Overrun!\n");
+        printf("ADC overrun, 0x%lx\n", ADC12_COMMON->CSR);
+        lcd.cls();
+        lcd.printf("ADC overrun");
         while (1);
     }
 
+    // Fill unused buffer
     while (write_ptr < adc_data_buf_len) {
         adc_data_buffer[LCR_ID_I][write_ptr] = UINT16_MAX / 2;
         adc_data_buffer[LCR_ID_V][write_ptr] = UINT16_MAX / 2;
@@ -486,12 +485,12 @@ bool initialize_adc()
     int hal_state = HAL_OK;
     // hal_state |= HAL_ADCEx_LinearCalibration_SetValue(&hadc1, settings.adc1_linearity_cal);
     // hal_state |= HAL_ADCEx_LinearCalibration_SetValue(&hadc2, settings.adc2_linearity_cal);
-    hal_state |= HAL_ADCEx_LinearCalibration_FactorLoad(&hadc1);
-    hal_state |= HAL_ADCEx_LinearCalibration_FactorLoad(&hadc2);
-    // hal_state |= HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET_LINEARITY, ADC_DIFFERENTIAL_ENDED);
-    // hal_state |= HAL_ADCEx_Calibration_Start(&hadc2, ADC_CALIB_OFFSET_LINEARITY, ADC_DIFFERENTIAL_ENDED);
-    hal_state |= HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET, ADC_DIFFERENTIAL_ENDED);
-    hal_state |= HAL_ADCEx_Calibration_Start(&hadc2, ADC_CALIB_OFFSET, ADC_DIFFERENTIAL_ENDED);
+    // hal_state |= HAL_ADCEx_LinearCalibration_FactorLoad(&hadc1);
+    // hal_state |= HAL_ADCEx_LinearCalibration_FactorLoad(&hadc2);
+    hal_state |= HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET_LINEARITY, ADC_DIFFERENTIAL_ENDED);
+    hal_state |= HAL_ADCEx_Calibration_Start(&hadc2, ADC_CALIB_OFFSET_LINEARITY, ADC_DIFFERENTIAL_ENDED);
+    // hal_state |= HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET, ADC_DIFFERENTIAL_ENDED);
+    // hal_state |= HAL_ADCEx_Calibration_Start(&hadc2, ADC_CALIB_OFFSET, ADC_DIFFERENTIAL_ENDED);
     hal_state |= HAL_ADCEx_Calibration_Start(&hadc3, ADC_CALIB_OFFSET, ADC_SINGLE_ENDED);
 
     // adc_calibration_dump();
@@ -500,7 +499,6 @@ bool initialize_adc()
     MODIFY_REG(ADC12_COMMON->CCR, ADC_CCR_DAMDF, ADC_DUALMODEDATAFORMAT_32_10_BITS);
     HAL_ADC_Start(&hadc2);
     HAL_ADC_Start(&hadc1);
-    printf("0x%04lx\n", ADC12_COMMON->CCR);
 
     return hal_state != HAL_OK;
 }
@@ -525,6 +523,15 @@ bool initialize_dac_tim()
 
 void adc_calibration_dump()
 {
+    {
+        uint32_t cal_data[ADC_LINEAR_CALIB_REG_COUNT];
+        HAL_ADCEx_LinearCalibration_GetValue(&hadc1, cal_data);
+        printf("ADC1: {0x%04lx, 0x%04lx, 0x%04lx, 0x%04lx, 0x%04lx, 0x%04lx}\n",
+            cal_data[0], cal_data[1], cal_data[2], cal_data[3], cal_data[4], cal_data[5]);
+        HAL_ADCEx_LinearCalibration_GetValue(&hadc2, cal_data);
+        printf("ADC2: {0x%04lx, 0x%04lx, 0x%04lx, 0x%04lx, 0x%04lx, 0x%04lx}\n",
+            cal_data[0], cal_data[1], cal_data[2], cal_data[3], cal_data[4], cal_data[5]);
+    }
     // LL_ADC_SetCommonClock(__LL_ADC_COMMON_INSTANCE(hadc1.Instance), ADC_CLOCK_ASYNC_DIV4);
     // LL_ADC_SetCommonClock(__LL_ADC_COMMON_INSTANCE(hadc2.Instance), ADC_CLOCK_ASYNC_DIV4);
     delay_ms(1000);
@@ -558,24 +565,24 @@ Complex calc_fourier(LCR_ID_IV id, int freq)
     return Complex(ratio * real_sum / adc_data_buf_len, ratio * im_sum / adc_data_buf_len);
 }
 
-double set_dac_output(int freq, double v_rms)
+double set_dac_output(int freq, double vdac_pp)
 {
     set_dac_bw(freq);
-    if (SystemCoreClock != 240000000) {
+    if (SystemCoreClock != 120000000) {
         printf("Warn: check clock settings\n");
     }
     if (freq < 1000) {
-        TIM7->ARR = 600 - 1;
+        TIM7->ARR = 300 - 1;
         dac_sampling_freq = 400e+3;
     } else {
-        TIM7->ARR = 48 - 1;
+        TIM7->ARR = 24 - 1;
         dac_sampling_freq = 5e+6;
     }
 
     double k = sqrt(1.0 + 2.7e-12 * freq * freq);
-    v_rms *= k;
-    if (v_rms > 1.5) {
-        v_rms = 1.5;
+    vdac_pp *= k;
+    if (vdac_pp > 3.0) {
+        vdac_pp = 3.0;
     }
 
     // uint32_t rand_seed = 0;
@@ -585,7 +592,7 @@ double set_dac_output(int freq, double v_rms)
 
     /* No dither */
     for (uint32_t i = 0; i < dac_dma_buf_len; ++i) {
-        double dac_code_ideal = 2043.0 + 1173.0 * v_rms * my_fast_sin(2 * M_PI * i * freq / (double)dac_sampling_freq);
+        double dac_code_ideal = 2043.0 + 419.0 * vdac_pp * my_fast_sin(2 * M_PI * i * freq / (double)dac_sampling_freq);
         dac_dma_buffer[i] = dac_code_ideal;
     }
 
@@ -615,7 +622,7 @@ double set_dac_output(int freq, double v_rms)
     }
     */
 
-    return v_rms / k;
+    return vdac_pp / k;
 }
 
 bool adc_is_clipping(LCR_ID_IV id, bool strict)
@@ -705,9 +712,9 @@ void pga_calibration()
             int max_gain_id = (target_stage_id == 0) ? 1 : 3;
             int mid_gain_id = (target_stage_id == 0) ? 0 : 2;
             tia_set_gain(2);
-            double v_rms = 1.0;
+            double v_pp = 1.0;
             while (1) {
-                set_dac_output(freq, v_rms);
+                set_dac_output(freq, v_pp);
                 pga_set_gain(LCR_ID_V, 0);  // release vref clampling
                 pga_set_gain(LCR_ID_I, 0);
                 delay_ms(10);
@@ -717,8 +724,8 @@ void pga_calibration()
                 measure_voltage_current(false);
                 if (adc_is_clipping(LCR_ID_I, true)
                     || adc_is_clipping(LCR_ID_V, true)) {
-                    v_rms *= 0.9;
-                    if (v_rms < 0.04) {
+                    v_pp *= 0.9;
+                    if (v_pp < 0.04) {
                         printf("\nSource level not converged, clipping %c\n", adc_is_clipping(LCR_ID_I, true) ? 'I' : 'V');
                         break;
                     }
@@ -815,8 +822,8 @@ void ac_couple_calibration()
     for (int freq_id = 0; freq_id < freq_list_length; ++freq_id) {
         int freq = settings.freq_list[freq_id];
 
-        double v_rms = 1.0;
-        set_dac_output(freq, v_rms);
+        double v_pp = 1.0;
+        set_dac_output(freq, v_pp);
         coupling_set_dc(true, true);  // DC couple
         delay_ms(200);
 

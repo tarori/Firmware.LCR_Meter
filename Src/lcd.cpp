@@ -24,7 +24,7 @@ void SMR12864::set_bus_mode(bool is_out)
 
 void SMR12864::set_cs(uint8_t chip_id, bool state)
 {
-    if (chip_id == 0) {
+    if ((chip_id == 0) ^ chip_swap) {
         HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, state ? GPIO_PIN_SET : GPIO_PIN_RESET);
     } else {
         HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, state ? GPIO_PIN_SET : GPIO_PIN_RESET);
@@ -266,6 +266,5 @@ uint8_t SMR12864::read_status(uint8_t chip_id)
     set_e(false);
     delay_us(1);
 
-    return 0x00;
     return state;
 }

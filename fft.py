@@ -16,8 +16,8 @@ if len(sys.argv) == 1:
     print("ファイルを指定してにょ")
     exit(1)
 
-raw_data = pd.read_csv(sys.argv[1], names=['I', 'V'])
-raw_data = raw_data['I']
+raw_data = pd.read_csv(sys.argv[1], names=['I', 'V'], header=1)
+raw_data = raw_data['V']
 try:
   raw_data = raw_data.astype(float)
 except:
@@ -29,6 +29,7 @@ adc_data_voltage = adc_data * adc_full_voltage
 
 N = len(adc_data)
 
+print('Len: ', N)
 print('Data:', min(adc_data), '~', max(adc_data))
 print("SNR Full-BW:", 10*np.log10((1/2) / np.mean((adc_data-adc_data.mean())**2)), "dB")
 

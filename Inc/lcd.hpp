@@ -9,6 +9,7 @@ public:
     static const uint32_t lcd_width = 128;
     static const uint32_t chip_width = lcd_width / 2;
     static const uint32_t lcd_height = 64;
+    static const bool chip_swap = true;
     uint32_t pos_x;
     uint32_t pos_y;
     uint32_t font_size;
