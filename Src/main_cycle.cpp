@@ -98,7 +98,7 @@ SMR12864 lcd;
 
 bool initialize_adc();
 bool initialize_dac_tim();
-double set_dac_output(int freq, double vdac_pp);
+double set_dac_output(int freq, double vdac_pp, double vdac_dc);
 void measure_voltage_current(bool is_short);
 bool adc_is_clipping(LCR_ID_IV id, bool strict);
 double read_battery_voltage();
@@ -156,31 +156,30 @@ void main_loop()
     int vdac_id = 0;
     bool dac_changed = true;
     bool dc_couple = true;
+    bool dc_bias = false;
     bool lcd_backlight = false;
     TIM4->CNT -= 4 * ((TIM4->CNT / 4 - freq_id) % freq_list_length);
-    double v_dac = 2.0;
-    TIM3->CNT = INT16_MAX + 4 * (v_dac / 0.1);
+    double vdac_pp = 2.0;
+    double vdac_dc = 0.0;
+    TIM3->CNT = INT16_MAX + 4 * (vdac_pp / 0.1);
 
     init_done = true;
     while (1) {
         /* Signal source setup */
         int freq_id_new = (TIM4->CNT / 4) % freq_list_length;
         if (freq_id != freq_id_new) {
+            freq_id = freq_id_new;
             dac_changed = true;
         }
 
         int vdac_id_new = ((int32_t)TIM3->CNT - INT16_MAX) / 4;
         if (vdac_id_new != vdac_id) {
             dac_changed = true;
-        }
-
-        if (dac_changed) {
-            freq_id = freq_id_new;
-            v_dac = vdac_id_new * 0.1;
-            if (v_dac <= 0) {
-                v_dac = 0.1;
-            }
             vdac_id = vdac_id_new;
+            vdac_pp = vdac_id * 0.1;
+            if (vdac_pp <= 0) {
+                vdac_pp = 0.1;
+            }
         }
 
         if (button2_pushed) {
@@ -196,10 +195,22 @@ void main_loop()
             set_backlight(lcd_backlight);
         }
 
+        if (button4_pushed) {
+            button4_pushed = false;
+            dc_bias = !dc_bias;
+            vdac_id = 0;
+            dac_changed = true;
+            if (dc_bias) {
+                vdac_dc = vdac_pp / 2;
+            } else {
+                vdac_dc = 0.0;
+            }
+        }
+
         if (dac_changed) {
             freq = settings.freq_list[freq_id];
             delaymeas_start();
-            v_dac = set_dac_output(freq, v_dac);
+            vdac_pp = set_dac_output(freq, vdac_pp, vdac_dc);
             delaymeas_end();
             dac_changed = false;
         }
@@ -331,12 +342,16 @@ void main_loop()
         }
 
         lcd.cls();
-        lcd.printf("%5d%s %4.2fVpp %s", freq < 1000 ? freq : freq / 1000, freq < 1000 ? "Hz" : "kHz", v_dac, dc_couple ? "DC" : "AC");
+        lcd.printf("%5d%s %4.2fVpp %s", freq < 1000 ? freq : freq / 1000, freq < 1000 ? "Hz" : "kHz", vdac_pp, dc_couple ? (dc_bias ? "DCPB" : "DC") : "AC");
 
         lcd.locate(1, 6);
         lcd.printf("B:%3.1fV  Z:", battery_voltage);
-        if (impedance.abs > 1e+9) {
+        if (impedance.abs > 1e+11) {
             lcd.printf(" ---- $");
+        } else if (impedance.abs > 1e+9) {
+            lcd.printf("%6.2fG$", impedance.abs / 1e+9);
+        } else if (impedance.abs > 1e+8) {
+            lcd.printf("%6.0fM$", impedance.abs / 1e+6);
         } else if (impedance.abs > 1e+6) {
             lcd.printf("%6.2fM$", impedance.abs / 1e+6);
         } else if (impedance.abs > 1e+5) {
@@ -384,7 +399,7 @@ void main_loop()
 
         if (inductance > 0 && inductance < 1.0e-1) {
             lcd.printf("%s", sp_mode ? "Ls" : "Lp");
-            if (inductance > 1.0e-3) {
+            if (inductance > 1.0e-2) {
                 lcd.printf("%6.3fmH", inductance * 1.0e+3);
             } else if (inductance > 1.0e-3) {
                 lcd.printf("%6.1fuH", inductance * 1.0e+6);
@@ -565,7 +580,7 @@ Complex calc_fourier(LCR_ID_IV id, int freq)
     return Complex(ratio * real_sum / adc_data_buf_len, ratio * im_sum / adc_data_buf_len);
 }
 
-double set_dac_output(int freq, double vdac_pp)
+double set_dac_output(int freq, double vdac_pp, double vdac_dc)
 {
     set_dac_bw(freq);
     if (SystemCoreClock != 120000000) {
@@ -579,11 +594,16 @@ double set_dac_output(int freq, double vdac_pp)
         dac_sampling_freq = 5e+6;
     }
 
-    double k = sqrt(1.0 + 2.7e-12 * freq * freq);
-    vdac_pp *= k;
-    if (vdac_pp > 3.0) {
-        vdac_pp = 3.0;
+    double bandwidth_ratio = sqrt(1.0 + 2.7e-12 * freq * freq);
+    vdac_pp *= bandwidth_ratio;
+    double vdac_over_ratio = (vdac_pp / 2 + abs(vdac_dc)) / 2.1;
+    if (vdac_over_ratio > 1) {
+        vdac_pp /= vdac_over_ratio;
+        vdac_dc /= vdac_over_ratio;
     }
+
+    vdac_pp = round(vdac_pp * 1000) / 1000.0;
+    vdac_dc = round(vdac_dc * 1000) / 1000.0;
 
     // uint32_t rand_seed = 0;
     // HAL_RNG_GenerateRandomNumber(&hrng, &rand_seed);
@@ -592,7 +612,7 @@ double set_dac_output(int freq, double vdac_pp)
 
     /* No dither */
     for (uint32_t i = 0; i < dac_dma_buf_len; ++i) {
-        double dac_code_ideal = 2043.0 + 419.0 * vdac_pp * my_fast_sin(2 * M_PI * i * freq / (double)dac_sampling_freq);
+        double dac_code_ideal = 2043.0 + 838.0 * vdac_dc + 419.0 * vdac_pp * my_fast_sin(2 * M_PI * i * freq / (double)dac_sampling_freq);
         dac_dma_buffer[i] = dac_code_ideal;
     }
 
@@ -622,7 +642,7 @@ double set_dac_output(int freq, double vdac_pp)
     }
     */
 
-    return vdac_pp / k;
+    return vdac_pp / bandwidth_ratio;
 }
 
 bool adc_is_clipping(LCR_ID_IV id, bool strict)
@@ -662,7 +682,7 @@ void dac_calibration()
     // int freq_id = 9;  // 100kHz
     int freq = settings.freq_list[freq_id];
     // set_dac_output(freq, 1.5);
-    set_dac_output(freq, 2.0);
+    set_dac_output(freq, 2.0, 0.0);
     tia_set_gain(0);
     pga_set_gain(LCR_ID_V, 0);
     pga_set_gain(LCR_ID_I, 0);
@@ -714,7 +734,7 @@ void pga_calibration()
             tia_set_gain(2);
             double v_pp = 1.0;
             while (1) {
-                set_dac_output(freq, v_pp);
+                set_dac_output(freq, v_pp, 0);
                 pga_set_gain(LCR_ID_V, 0);  // release vref clampling
                 pga_set_gain(LCR_ID_I, 0);
                 delay_ms(10);
@@ -823,7 +843,7 @@ void ac_couple_calibration()
         int freq = settings.freq_list[freq_id];
 
         double v_pp = 1.0;
-        set_dac_output(freq, v_pp);
+        set_dac_output(freq, v_pp, 0);
         coupling_set_dc(true, true);  // DC couple
         delay_ms(200);
 
