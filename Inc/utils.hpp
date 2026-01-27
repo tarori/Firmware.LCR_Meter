@@ -5,6 +5,7 @@
 #include <math.h>
 #include "main.h"
 #include "adc.h"
+#include "math_android.hpp"
 
 #define ARM_MATH_CM7
 #include "arm_math.h"
@@ -59,6 +60,12 @@ static inline float my_fast_cos(double x)
 {
     float in = my_fmod(x, 2 * M_PI);
     return cosf(in);
+}
+
+static inline void my_fast_sincos(double x, float* sin_out, float* cos_out)
+{
+    float in = my_fmod(x, 2 * M_PI);
+    sincosf(in, sin_out, cos_out);
 }
 
 class ScopedLock

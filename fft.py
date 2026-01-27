@@ -16,8 +16,8 @@ if len(sys.argv) == 1:
     print("ファイルを指定してにょ")
     exit(1)
 
-raw_data = pd.read_csv(sys.argv[1], names=['I', 'V'], header=1)
-raw_data = raw_data['V']
+raw_data = pd.read_csv(sys.argv[1], names=['I', 'V'], header=2)
+raw_data = raw_data['I']
 try:
   raw_data = raw_data.astype(float)
 except:

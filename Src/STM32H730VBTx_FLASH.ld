@@ -181,13 +181,13 @@ SECTIONS
   .RAM_D1_1 (NOLOAD) :
   {
     . = ALIGN(4);
-     KEEP(*(.RAM_DATA))
+     KEEP(*(.RAM_DMA))
   } >RAM_D1_1
 
   .RAM_D1_2 (NOLOAD) :
   {
     . = ALIGN(4);
-     KEEP(*(.RAM_DMA))
+     KEEP(*(.RAM_DATA))
   } >RAM_D1_2
 
   /* Remove information from the standard libraries */
